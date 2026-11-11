@@ -1,0 +1,65 @@
+# ======================================================================
+#  Everything that run_all.sh regenerates, plus what cannot be
+#  redistributed. Of the data, only the inputs that are not
+#  regenerated get in, with explicit exceptions at the bottom.
+# ======================================================================
+
+# data and results; data/clinical/ never gets in
+/data/*
+/output/
+/papers/
+
+# build
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.obj
+
+# python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Claude Code: the local configuration is not part of the recipe
+.claude/settings.local.json
+
+# ----------------------------------------------------------------------
+# Safety net: heavy data formats, wherever they are.
+# Prevents data that ended up outside data/ by mistake from getting into git.
+# ----------------------------------------------------------------------
+*.h5
+*.igb
+*.vtk
+*.vtu
+*.vtp
+*.ply
+*.stl
+*.mesh
+*.npz
+*.pts
+*.elem
+*.lon
+*.vtx
+*.log
+
+# ----------------------------------------------------------------------
+# Inputs in git, the only data that are not regenerated: the SSM and
+# the AugmentA output read by run_all.sh. At the bottom, to take precedence
+# over the safety net.
+# ----------------------------------------------------------------------
+!/data/external/
+/data/external/*
+!/data/external/biatrial_model_completeFit.h5
+!/data/augmenta/
+/data/augmenta/*
+!/data/augmenta/LA_endo_with_fiber.pts
+!/data/augmenta/LA_endo_with_fiber.elem
+!/data/augmenta/LA_endo_with_fiber.lon
