@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Analysis of the experiment grid: for each scenario (the folders of output/ with
-per_face/) the 42 subsets of at least 3 maps with the per-face estimator
+Analysis of the experiment grid: for each scenario of SCENARIOS (the same list,
+in the same order, as run_all.sh) the 42 subsets of at least 3 maps with the per-face estimator
 (output/SCENARIO/per_face/sub_*/) and the 20 triplets with method 2 of
 Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/), each with estimate.ply
 (format D) and estimate.csv.
@@ -89,6 +89,7 @@ from roney import read_ply                                # the PLY reader
 REF = ROOT / "data" / "reference"
 OUT = ROOT / "output"
 FIG = OUT / "figures"
+SCENARIOS = ["uniform", "painted"]                        # as in run_all.sh: order of tables and plots 1, 4
 SCENARIO_COND = "uniform"                                 # plot 0
 ERRORS = ("angle", "cv_l", "ratio")
 QUANTILES = (50, 90, 99)
@@ -174,11 +175,6 @@ def cond_quantiles(df):
     return {f"cond_q{q}": wquantile(c["cond"], c["area"], q / 100) for q in QUANTILES}
 
 
-def scenarios():
-    """The folders of output/ with per_face/, by name."""
-    return sorted(d.name for d in OUT.iterdir() if (d / "per_face").is_dir())
-
-
 def subs(scenario, method):
     """The subsets of a run, by number of maps and then by name."""
     return sorted((d.name for d in (OUT / scenario / method).glob("sub_*")), key=lambda s: (s.count("-"), s))
@@ -187,7 +183,7 @@ def subs(scenario, method):
 def tables():
     """per_face.csv and comparison.csv, as DataFrames."""
     per_face_table, comparison = [], []
-    for sc in scenarios():
+    for sc in SCENARIOS:
         per_face = {sub: load(sc, "per_face", sub) for sub in subs(sc, "per_face")}
         roney = {sub: load(sc, "roney", sub) for sub in subs(sc, "roney")}
 
@@ -379,7 +375,7 @@ def main():
     plt.close(fig)
 
     # plot 1: for each scenario, as a function of k, points staggered within each k
-    for sc in scenarios():
+    for sc in SCENARIOS:
         g1 = per_face_table[per_face_table["scenario"] == sc].copy()
         i, n = g1.groupby("k").cumcount(), g1.groupby("k")["k"].transform("size")
         g1["x"] = g1["k"] + 0.6 * (i - (n - 1) / 2) / n
@@ -400,7 +396,7 @@ def main():
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()
-        for sc, color, marker in zip(scenarios(), OKABE_ITO, MARKERS):
+        for sc, color, marker in zip(SCENARIOS, OKABE_ITO, MARKERS):
             s = g4[g4["scenario"] == sc]
             ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=color, marker=marker, label=sc,
                        zorder=3)

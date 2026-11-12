@@ -51,8 +51,9 @@ __pycache__/
 *.log
 
 # ----------------------------------------------------------------------
-# Inputs in git, the only data that are not regenerated: the SSM and
-# the AugmentA output read by run_all.sh. At the bottom, to take precedence
+# Inputs in git, the only data that are not regenerated: the SSM,
+# the AugmentA output read by run_all.sh and the two maps painted in
+# MeshLab for the painted scenario. At the bottom, to take precedence
 # over the safety net.
 # ----------------------------------------------------------------------
 !/data/external/
@@ -63,3 +64,5 @@ __pycache__/
 !/data/augmenta/LA_endo_with_fiber.pts
 !/data/augmenta/LA_endo_with_fiber.elem
 !/data/augmenta/LA_endo_with_fiber.lon
+!/simulator/painted_alpha.ply
+!/simulator/painted_mu.ply

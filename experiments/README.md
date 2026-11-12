@@ -1,6 +1,7 @@
 # Experiments
 
-The pipeline, for each scenario (the list `SCENARIOS` in `run_all.sh`):
+The pipeline, for each scenario (the list `SCENARIOS` in `run_all.sh`, today
+`uniform painted`, in this order):
 
 ```
 simulator/make_truth.py SCENARIO   ->  data/reference/SCENARIO/truth.ply   ground truth, format D
@@ -18,6 +19,22 @@ by `load()` of `analysis/analysis.py`, with the same formulas for the two
 methods.
 
 Units: lengths in mm, times in ms, velocities in mm/ms.
+
+## Scenarios
+
+`simulator/make_truth.py SCENARIO`; both use the AugmentA mesh and fibers and
+differ only in μ and α:
+
+- `uniform`: CV_L = 1.05, CV_T = 0.525 mm/ms on every face (r = 2).
+- `painted`: μ and α painted by hand in MeshLab, in grayscale, in
+  `simulator/painted_mu.ply` and `simulator/painted_alpha.ply` (the AugmentA
+  mesh with flipped faces). Only the per-vertex colors are read, matched by
+  vertex index. Per vertex g = (R + G + B) / 3 / 255, 0 black and 1 white (the
+  alpha channel is ignored); then
+  α = ½ ln 1.6 + g (½ ln 2.4 − ½ ln 1.6), r = e^(2α) from 1.6 (black) to
+  2.4 (white), and μ = −0.6 + 0.6 g, e^μ from 0.55 (black) to 1.0 mm/ms
+  (white). Per face, the mean of the values (not of the colors) of its three
+  vertices.
 
 ## Format D: conduction field
 
@@ -139,7 +156,8 @@ in the figures.
 ## Analysis
 
 `python analysis/analysis.py`, without arguments, reads the whole grid (the
-scenarios are the folders of `output/` with `per_face/`) and writes to
+scenarios are the list `SCENARIOS` at its top, `["uniform", "painted"]`, the
+same order as `run_all.sh`: tables and plots 1 and 4 follow it) and writes to
 `output/figures/`.
 
 `load(scenario, method, sub)` reads `data/reference/SCENARIO/truth.ply` (once per
@@ -250,12 +268,13 @@ its `estimate.ply` and prints a line `MESH NUMBERS PREFIX`, which `run_all.sh`
 passes to `ErrorMaps`; it creates `output/mesh/` if needed. The PLYs are
 `output/mesh/METHOD_SCENARIO_SUB_{angle,cv_l,ratio}.ply`:
 
-1. per-face, all maps, on each scenario of `SCENARIOS_ALL_MAPS`;
-2. per-face and Roney on the triplet of `SCENARIO_TRIPLET` with the largest
-   paired area (faces estimable by both methods, area-weighted, areas from
-   `load()`).
+1. per-face, all maps, on each scenario of `SCENARIOS_ALL_MAPS` (`uniform`
+   and `painted`);
+2. per-face and Roney on the triplet of `SCENARIO_TRIPLET` (`painted`) with
+   the largest paired area (faces estimable by both methods, area-weighted,
+   areas from `load()`).
 
-The scenarios are constants at the top of `error_maps.py` (today `uniform`).
+The scenarios are constants at the top of `error_maps.py`.
 
 ## Conduction fields for MeshLab
 

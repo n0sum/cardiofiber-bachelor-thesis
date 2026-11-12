@@ -25,8 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]                # repository root
 sys.path.insert(0, str(ROOT / "analysis"))
 from analysis import load, subs                           # the errors of a run
 
-SCENARIOS_ALL_MAPS = ["uniform"]
-SCENARIO_TRIPLET = "uniform"
+SCENARIOS_ALL_MAPS = ["uniform", "painted"]
+SCENARIO_TRIPLET = "painted"
 
 
 def line(method, scenario, sub, df):

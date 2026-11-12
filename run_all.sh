@@ -10,7 +10,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # scenarios: ground truth of simulator/make_truth.py, one folder data/reference/SCENARIO/ each
-SCENARIOS="uniform"
+SCENARIOS="uniform painted"
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build

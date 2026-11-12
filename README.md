@@ -15,6 +15,7 @@ data/
   augmenta/LA_endo_with_fiber.{pts,elem,lon}  LA with fibers, AugmentA output (included)
 simulator/
   make_truth.py                ground truth of a scenario in format D
+  painted_{alpha,mu}.ply       alpha and mu painted in MeshLab, scenario painted (included)
   stage1/                      LA from the SSM (optional, see below), pacing sites
 cardiofiber/                   estimation package (C++ library, glm only): mesh, per-vertex LAT maps
                                -> per-face gradient -> per-face tensor; cardiofiber/README.md
@@ -66,6 +67,12 @@ L. Azzolin et al., *AugmentA: patient-specific augmented atrial model
 generation tool*, Computerized Medical Imaging and Graphics 108 (2023)
 102265.
 
+**Painted maps** `simulator/painted_alpha.ply` and `simulator/painted_mu.ply`:
+α and μ of the `painted` scenario, painted by hand in MeshLab in grayscale
+on the AugmentA mesh with flipped faces (21811 vertices, per-vertex colors).
+`make_truth.py` reads only their colors, matched by vertex index; positions,
+faces and fibers come from `data/augmenta/`.
+
 ## Reproducing the results
 
 ```bash
@@ -95,6 +102,13 @@ Scenarios (`simulator/make_truth.py`):
 | scenario  | ground truth |
 |-----------|--------------|
 | `uniform` | AugmentA fibers, CV_L = 1.05, CV_T = 0.525 mm/ms on every face (r = 2) |
+| `painted` | AugmentA fibers; μ and α vary continuously, painted by hand (`simulator/painted_{alpha,mu}.ply`) |
+
+In `painted`, per vertex g = mean of R, G, B / 255 (0 black, 1 white; the
+alpha channel is ignored), then α = ½ ln 1.6 + g (½ ln 2.4 − ½ ln 1.6)
+(r from 1.6, black, to 2.4, white) and μ = −0.6 + 0.6 g (e^μ from 0.55,
+black, to 1.0 mm/ms, white); per face the mean of the values of its three
+vertices.
 
 Outputs:
 
