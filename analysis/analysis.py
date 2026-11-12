@@ -54,9 +54,8 @@ cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, 
 marker by k, in the title Spearman's rho over the 42 points.
 
 plot5_ratio.png, the sweep in r: one point per scenario of SWEEP (uniform fields that
-differ only in alpha; uniform is r = 2), r on the horizontal axis, a dashed gray line
-at r = sqrt(2), above which the pedal curve of the front ellipse is not convex. Three
-series, one Okabe-Ito color each: per-face with the six maps on its estimable faces;
+differ only in alpha: r = 1.6, 2, the latter being uniform, and 2.4), r on the
+horizontal axis with ticks at those values. Three series, one Okabe-Ito color each: per-face with the six maps on its estimable faces;
 per-face and Roney on the 20 triplets pooled (each face once per triplet, as the
 pooled rows of comparison.csv), on the faces paired with that triplet. 2 x 2 panels as
 plot 0a: angle, cv_l, ratio with q50 (solid line) and q90 (dashed) of the absolute
@@ -78,11 +77,13 @@ own scale. The other vertical axes, including the _area files, are linear from 0
 in plot 4 also the horizontal axis, with the same limits.
   plot1_maps_SCENARIO  one per scenario of MAIN_SCENARIOS, as a function of k: one point per
                        subset and quantile, staggered within each k
-  plot4_roney          one point per triplet and scenario of MAIN_SCENARIOS, Roney on the horizontal axis and
-                       per-face on the vertical axis, same limits on both axes,
-                       one color (Okabe-Ito) and one marker per scenario, in the order of
-                       the scenarios; on the axes only 0, minimum, centroid (mean of all
-                       the points, cross) and maximum of the cloud, with dotted
+  plot4_roney          one point per triplet and scenario of SCENARIOS (all four, 80
+                       points), Roney on the horizontal axis and per-face on the
+                       vertical axis, same limits on both axes, one color (Okabe-Ito)
+                       and one marker per scenario, in the order of run_all.sh, labels
+                       of SCENARIO_LABELS; limits, minimum, maximum and centroid over
+                       all the points; on the axes only 0, minimum, centroid (mean of
+                       all the points, cross) and maximum of the cloud, with dotted
                        projections and without grid
 """
 
@@ -106,10 +107,10 @@ from roney import read_ply                                # the PLY reader
 REF = ROOT / "data" / "reference"
 OUT = ROOT / "output"
 FIG = OUT / "figures"
-MAIN_SCENARIOS = ["uniform", "painted"]                   # plots 1 and 4
-SWEEP = [("r1.2", 1.2), ("r1.41", np.sqrt(2)), ("r1.6", 1.6),   # plot 5: uniform fields differing only in r,
-         ("uniform", 2.0), ("r2.4", 2.4), ("r3", 3.0)]         # in increasing r
-SCENARIOS = MAIN_SCENARIOS + [sc for sc, _ in SWEEP if sc not in MAIN_SCENARIOS]   # tables: order of run_all.sh
+MAIN_SCENARIOS = ["uniform", "painted"]                   # plot 1
+SWEEP = [("r1.6", 1.6), ("uniform", 2.0), ("r2.4", 2.4)]  # plot 5: uniform fields differing only in r, increasing r
+SCENARIOS = MAIN_SCENARIOS + [sc for sc, _ in SWEEP if sc not in MAIN_SCENARIOS]   # tables and plot 4: run_all.sh
+SCENARIO_LABELS = {"uniform": "uniform (r = 2)", "painted": "painted", "r1.6": "r = 1.6", "r2.4": "r = 2.4"}
 SCENARIO_COND = "uniform"                                 # plot 0
 ERRORS = ("angle", "cv_l", "ratio")
 QUANTILES = (50, 90, 99)
@@ -409,17 +410,17 @@ def main():
         figure(f"plot1_maps_{sc}", f"{sc}: one point per map subset", draw1, together=True)
 
     # plot 4: per-face vs Roney, one point per triplet and scenario
-    triplets = comparison[(comparison["sub"] != "pooled") & comparison["scenario"].isin(MAIN_SCENARIOS)]
+    triplets = comparison[comparison["sub"] != "pooled"]
     g4 = triplets[triplets["method"] == "roney"].merge(triplets[triplets["method"] == "per_face"],
                                                        on=["scenario", "sub"],
                                                        suffixes=("_roney", "_per_face"))
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()
-        for sc, color, marker in zip(MAIN_SCENARIOS, OKABE_ITO, MARKERS):
+        for sc, color, marker in zip(SCENARIOS, OKABE_ITO, MARKERS):
             s = g4[g4["scenario"] == sc]
-            ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=color, marker=marker, label=sc,
-                       zorder=3)
+            ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=color, marker=marker,
+                       label=SCENARIO_LABELS[sc], zorder=3)
         x, y = g4[f"{col}_roney"], g4[f"{col}_per_face"]
         lim = (0, 1.05 * max(x.max(), y.max()))
         ax.plot(lim, lim, color="#555", lw=1, label="y = x")
@@ -488,7 +489,6 @@ def plot5():
     rs = [r for _, r in SWEEP]
 
     def r_axis(ax):
-        ax.axvline(np.sqrt(2), color="#888", lw=1, ls="--", label="r = √2", zorder=1)
         ax.grid(alpha=0.3)
         ax.set_xticks(rs, [f"{r:.3g}" for r in rs])
         ax.set_xlabel("r = CV_L / CV_T")

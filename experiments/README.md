@@ -1,7 +1,7 @@
 # Experiments
 
 The pipeline, for each scenario (the list `SCENARIOS` in `run_all.sh`, today
-`uniform painted r1.2 r1.41 r1.6 r2.4 r3`, in this order):
+`uniform painted r1.6 r2.4`, in this order):
 
 ```
 simulator/make_truth.py SCENARIO   ->  data/reference/SCENARIO/truth.ply   ground truth, format D
@@ -35,13 +35,10 @@ differ only in μ and α:
   2.4 (white), and μ = −0.6 + 0.6 g, e^μ from 0.55 (black) to 1.0 mm/ms
   (white). Per face, the mean of the values (not of the colors) of its three
   vertices.
-- `r1.2`, `r1.41`, `r1.6`, `r2.4`, `r3`: the sweep in r. μ of `uniform`,
-  ½ (ln 1.05 + ln 0.525), and α = ½ ln r, both constant on every face, with
-  r = 1.2, √2 exactly (α = ¼ ln 2), 1.6, 2.4, 3; r = 2 is `uniform` itself.
-  Same fibers, μ and pacing sites as `uniform`: only the flattening of the
-  ellipse changes. Above r = √2 the pedal curve of the front ellipse (the
-  curve of the velocity vectors) is no longer convex, and Roney's ellipse can
-  fail even with exact data.
+- `r1.6`, `r2.4`: the sweep in r. μ of `uniform`, ½ (ln 1.05 + ln 0.525),
+  and α = ½ ln r, both constant on every face, with r = 1.6 and 2.4; r = 2 is
+  `uniform` itself. Same fibers, μ and pacing sites as `uniform`: only the
+  flattening of the ellipse changes.
 
 ## Format D: conduction field
 
@@ -164,10 +161,10 @@ in the figures.
 
 `python analysis/analysis.py`, without arguments, reads the whole grid and
 writes to `output/figures/`. Two lists at its top: `MAIN_SCENARIOS`,
-`["uniform", "painted"]`, for plots 1 and 4, and `SWEEP`, the scenarios of
-the sweep in r with their r, in increasing r (`uniform` is r = 2), for plot 5.
-The tables contain all the scenarios, in the order of `run_all.sh`
-(`SCENARIOS`: `MAIN_SCENARIOS`, then the rest of `SWEEP`).
+`["uniform", "painted"]`, for plot 1, and `SWEEP`, the scenarios of the sweep
+in r with their r, in increasing r (`r1.6`, `uniform` as r = 2, `r2.4`), for
+plot 5. The tables and plot 4 contain all the scenarios, in the order of
+`run_all.sh` (`SCENARIOS`: `MAIN_SCENARIOS`, then the rest of `SWEEP`).
 
 `load(scenario, method, sub)` reads `data/reference/SCENARIO/truth.ply` (once per
 scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
@@ -212,8 +209,8 @@ r, so it is compared only at equal r.
 | `plot0_maps_cond.png`    | one box of cond (log) per k, on the faces with computed cond of all the subsets with k maps |
 | `plot0_cond_area.png`    | one point per subset from `per_face.csv`: cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and marker by k; in the title Spearman's ρ over the 42 points |
 | `plot1_maps_SCENARIO_*`  | one set per scenario of `MAIN_SCENARIOS`, as a function of k: one point per subset and quantile, staggered within each k |
-| `plot4_roney_*`          | one point per triplet and scenario of `MAIN_SCENARIOS` (one Okabe-Ito color and one marker per scenario, in the order of the scenarios): Roney on the horizontal axis, per-face on the vertical axis, with y = x; on the axes only 0, minimum, centroid (mean of all the points, cross) and maximum, with dotted projections and without grid |
-| `plot5_ratio.png`        | the sweep in r: one point per scenario of `SWEEP` (uniform fields differing only in r; `uniform` is r = 2), r on the horizontal axis, dashed gray line at r = √2. Three series, one Okabe-Ito color each: per-face with the six maps, on its estimable faces; per-face and Roney on the 20 triplets pooled (each face once per triplet, as the `pooled` rows of `comparison.csv`), on the faces paired with that triplet. 2 × 2 panels as plot 0a: angle, cv_l, ratio with q50 (solid) and q90 (dashed) of the absolute value, area-weighted, log vertical scale; non-estimable area, % of the total area, each series alone (on the triplets the mean over the 20), linear from 0, with for Roney a dashed line for the part where the conic is not an ellipse or the system is nearly singular (`k_used = 3`, estimate NaN), without the part lost to the planar fit (`k_used < 3`). Numbers in `ratio_sweep.csv`, one row per scenario and series: r, non-estimable area (for Roney also its two parts), q50 and q90 of the three errors, and for the two per-face series `cond_q50`, `cond_q90` (faces with computed cond; on the triplets pooled): cond depends on r, and here it is part of the effect |
+| `plot4_roney_*`          | one point per triplet and scenario of `SCENARIOS`, 80 points (one Okabe-Ito color and one marker per scenario, in the order of `run_all.sh`; in the legend `uniform (r = 2)`, `painted`, `r = 1.6`, `r = 2.4`; limits and centroid over all the points): Roney on the horizontal axis, per-face on the vertical axis, with y = x; on the axes only 0, minimum, centroid (mean of all the points, cross) and maximum, with dotted projections and without grid |
+| `plot5_ratio.png`        | the sweep in r: one point per scenario of `SWEEP` (uniform fields differing only in r: 1.6, 2 (`uniform`), 2.4), r on the horizontal axis with ticks at those values. Three series, one Okabe-Ito color each: per-face with the six maps, on its estimable faces; per-face and Roney on the 20 triplets pooled (each face once per triplet, as the `pooled` rows of `comparison.csv`), on the faces paired with that triplet. 2 × 2 panels as plot 0a: angle, cv_l, ratio with q50 (solid) and q90 (dashed) of the absolute value, area-weighted, log vertical scale; non-estimable area, % of the total area, each series alone (on the triplets the mean over the 20), linear from 0, with for Roney a dashed line for the part where the conic is not an ellipse or the system is nearly singular (`k_used = 3`, estimate NaN), without the part lost to the planar fit (`k_used < 3`). Numbers in `ratio_sweep.csv`, one row per scenario and series: r, non-estimable area (for Roney also its two parts), q50 and q90 of the three errors, and for the two per-face series `cond_q50`, `cond_q90` (faces with computed cond; on the triplets pooled): cond depends on r, and here it is part of the effect |
 
 Median, minimum and maximum over subsets count each subset once;
 the area weighting applies within each subset.
