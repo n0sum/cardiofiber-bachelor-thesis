@@ -23,7 +23,7 @@
 // Length of a fiber triangle per unit of CV_L (mm per mm/ms).
 const double K = 0.6;
 // Width of the base of a fiber triangle (mm).
-const double WIDTH = 0.05;
+const double WIDTH = 0.005;
 // Height of a fiber triangle above its face, along the outward normal (mm).
 const double HEIGHT = 0.05;
 
