@@ -11,6 +11,7 @@ Estimate output/SCENARIO/confs/*   ->  output/SCENARIO/per_face/sub_…/estimate
 estimator/roney.py roney.conf SC.. ->  output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
 analysis/analysis.py               ->  output/figures/
 experiments/error_maps.py + ErrorMaps -> output/mesh/
+FiberView, same cases              ->  estimate_{ratio,fibers}.ply, truth_{ratio,fibers}.ply
 ```
 
 The two estimators read only `lat.ply` and write their estimate in format D:
@@ -154,6 +155,10 @@ output/
   mesh/                               the error PLYs, ErrorMaps from error_maps.py
 ```
 
+In the folders of the error-map cases (`error_maps.py`) there are also
+`error_maps.txt` and `estimate_{ratio,fibers}.ply` (FiberView, see
+"Conduction fields for MeshLab").
+
 `run_all.sh` deletes `output/` before recomputing it, so no old results end up
 in the figures.
 
@@ -288,4 +293,15 @@ The scenarios are constants at the top of `error_maps.py`.
 `./estimator/build/FiberView D.ply PREFIX` turns any format D file (ground
 truth or estimate) into `PREFIX_ratio.ply` (quality per face = r) and
 `PREFIX_fibers.ply` (a thin triangle along each fiber, length proportional to
-CV_L); faces with NaN are left out. `run_all.sh` does not call it.
+CV_L); faces with NaN are left out.
+
+`run_all.sh` calls it for the cases of the error maps (`error_maps.py`): for
+each one on the estimate, writing `estimate_{ratio,fibers}.ply` next to
+`output/SCENARIO/METHOD/SUB/estimate.ply`, and on the ground truth of its
+scenario, writing `truth_{ratio,fibers}.ply` next to
+`data/reference/SCENARIO/truth.ply` (today `uniform` and `painted`; for
+`painted` the same files are written once per case).
+
+To compare ground truth and estimate in MeshLab: *Colorize by face quality*
+on the two `_ratio.ply`, with Min and Max set by hand and equal for both, and
+Percentile Crop 0, so the same colour is the same r.

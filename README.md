@@ -115,10 +115,14 @@ Outputs:
 
 | folder                     | content |
 |----------------------------|---------|
-| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps) |
-| `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` next to the `estimate.ply` of the error-PLY cases (`error_maps.py`) |
+| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps); for the scenarios of the error-PLY cases `truth_{ratio,fibers}.ply` (FiberView) |
+| `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` (`error_maps.py`) and `estimate_{ratio,fibers}.ply` (FiberView) next to the `estimate.ply` of the error-PLY cases |
 | `output/figures/`          | `per_face.csv`, `comparison.csv` and the plots (`analysis.py`) |
 | `output/mesh/`             | error PLYs, one per error and case, for MeshLab (`ErrorMaps`) |
+
+To compare a `truth_ratio.ply` with an `estimate_ratio.ply` in MeshLab:
+*Colorize by face quality* with Min and Max set by hand, equal for both, and
+Percentile Crop 0.
 
 The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the

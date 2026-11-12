@@ -39,6 +39,12 @@ python analysis/analysis.py                       # -> output/figures/
 
 # error maps in PLY: the cases are chosen in error_maps.py; three PLYs per case, one per error.
 # error_maps.py writes the errors of each case next to its estimate.ply, in error_maps.txt
+# For each case FiberView also writes the estimate and the ground truth of its scenario as PLYs
+# for MeshLab, next to their D file; for painted the ground truth is rewritten once per case.
 python experiments/error_maps.py | while read -r mesh numbers prefix; do
     ./estimator/build/ErrorMaps "$mesh" "$numbers" "$prefix"   # -> output/mesh/*_{angle,cv_l,ratio}.ply
+    case_dir=$(dirname "$numbers")
+    truth_dir=$(dirname "$mesh")
+    ./estimator/build/FiberView "$case_dir/estimate.ply" "$case_dir/estimate"  # -> estimate_{ratio,fibers}.ply
+    ./estimator/build/FiberView "$truth_dir/truth.ply" "$truth_dir/truth"      # -> truth_{ratio,fibers}.ply
 done
