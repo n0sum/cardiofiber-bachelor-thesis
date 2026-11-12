@@ -1,7 +1,7 @@
 # Experiments
 
 The pipeline, for each scenario (the list `SCENARIOS` in `run_all.sh`, today
-`uniform painted`, in this order):
+`uniform painted r1.2 r1.41 r1.6 r2.4 r3`, in this order):
 
 ```
 simulator/make_truth.py SCENARIO   ->  data/reference/SCENARIO/truth.ply   ground truth, format D
@@ -22,7 +22,7 @@ Units: lengths in mm, times in ms, velocities in mm/ms.
 
 ## Scenarios
 
-`simulator/make_truth.py SCENARIO`; both use the AugmentA mesh and fibers and
+`simulator/make_truth.py SCENARIO`; all use the AugmentA mesh and fibers and
 differ only in μ and α:
 
 - `uniform`: CV_L = 1.05, CV_T = 0.525 mm/ms on every face (r = 2).
@@ -35,6 +35,13 @@ differ only in μ and α:
   2.4 (white), and μ = −0.6 + 0.6 g, e^μ from 0.55 (black) to 1.0 mm/ms
   (white). Per face, the mean of the values (not of the colors) of its three
   vertices.
+- `r1.2`, `r1.41`, `r1.6`, `r2.4`, `r3`: the sweep in r. μ of `uniform`,
+  ½ (ln 1.05 + ln 0.525), and α = ½ ln r, both constant on every face, with
+  r = 1.2, √2 exactly (α = ¼ ln 2), 1.6, 2.4, 3; r = 2 is `uniform` itself.
+  Same fibers, μ and pacing sites as `uniform`: only the flattening of the
+  ellipse changes. Above r = √2 the pedal curve of the front ellipse (the
+  curve of the velocity vectors) is no longer convex, and Roney's ellipse can
+  fail even with exact data.
 
 ## Format D: conduction field
 
@@ -155,10 +162,12 @@ in the figures.
 
 ## Analysis
 
-`python analysis/analysis.py`, without arguments, reads the whole grid (the
-scenarios are the list `SCENARIOS` at its top, `["uniform", "painted"]`, the
-same order as `run_all.sh`: tables and plots 1 and 4 follow it) and writes to
-`output/figures/`.
+`python analysis/analysis.py`, without arguments, reads the whole grid and
+writes to `output/figures/`. Two lists at its top: `MAIN_SCENARIOS`,
+`["uniform", "painted"]`, for plots 1 and 4, and `SWEEP`, the scenarios of
+the sweep in r with their r, in increasing r (`uniform` is r = 2), for plot 5.
+The tables contain all the scenarios, in the order of `run_all.sh`
+(`SCENARIOS`: `MAIN_SCENARIOS`, then the rest of `SWEEP`).
 
 `load(scenario, method, sub)` reads `data/reference/SCENARIO/truth.ply` (once per
 scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
@@ -202,9 +211,9 @@ r, so it is compared only at equal r.
 | `plot0_cond_errors.png`  | faces with computed cond of the 42 subsets together, in 10 equal-area cond bins, at the median cond of the bin: three panels angle, cv_l, ratio with one box per bin on the estimable faces (q25–q75, line at q50, whiskers q10–q90, area-weighted; log on both axes) and in the title Spearman's ρ between cond and error; in a 2 × 2 square with the area panel: the % of area of the bin where the estimate is not an ellipse, i.e. the faces with cond but estimate NaN (smaller eigenvalue ≤ 1e-8 times the larger one); the faces discarded because the smallest singular value is below threshold have no cond and do not appear |
 | `plot0_maps_cond.png`    | one box of cond (log) per k, on the faces with computed cond of all the subsets with k maps |
 | `plot0_cond_area.png`    | one point per subset from `per_face.csv`: cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and marker by k; in the title Spearman's ρ over the 42 points |
-| `plot1_maps_SCENARIO_*`  | one set per scenario, as a function of k: one point per subset and quantile, staggered within each k |
-| `plot4_roney_*`          | one point per triplet and scenario (one Okabe-Ito color and one marker per scenario, in the order of the scenarios): Roney on the horizontal axis, per-face on the vertical axis, with y = x; on the axes only 0, minimum, centroid (mean of all the points, cross) and maximum, with dotted projections and without grid |
-| `plot5_ratio.png`        | only on `painted` (`SCENARIO_RATIO`): errors and non-estimable area as a function of the true r = CV_L / CV_T, in 10 equal-area bins of true r computed once on the ground truth (the same for every series), each at its area-weighted median r. Three series, one Okabe-Ito color each: per-face with the six maps, on its estimable faces; per-face and Roney on the 20 triplets pooled (each face once per triplet, as the `pooled` rows of `comparison.csv`), on the faces paired with that triplet. 2 × 2 panels as plot 0a: angle, cv_l, ratio with q50 (solid) and q90 (dashed) of the absolute value, area-weighted, log vertical scale; non-estimable area, % of the area of the bin, each series alone (on the triplets each method with its own lost area), linear from 0. Numbers in `ratio_bins.csv`, one row per bin and series |
+| `plot1_maps_SCENARIO_*`  | one set per scenario of `MAIN_SCENARIOS`, as a function of k: one point per subset and quantile, staggered within each k |
+| `plot4_roney_*`          | one point per triplet and scenario of `MAIN_SCENARIOS` (one Okabe-Ito color and one marker per scenario, in the order of the scenarios): Roney on the horizontal axis, per-face on the vertical axis, with y = x; on the axes only 0, minimum, centroid (mean of all the points, cross) and maximum, with dotted projections and without grid |
+| `plot5_ratio.png`        | the sweep in r: one point per scenario of `SWEEP` (uniform fields differing only in r; `uniform` is r = 2), r on the horizontal axis, dashed gray line at r = √2. Three series, one Okabe-Ito color each: per-face with the six maps, on its estimable faces; per-face and Roney on the 20 triplets pooled (each face once per triplet, as the `pooled` rows of `comparison.csv`), on the faces paired with that triplet. 2 × 2 panels as plot 0a: angle, cv_l, ratio with q50 (solid) and q90 (dashed) of the absolute value, area-weighted, log vertical scale; non-estimable area, % of the total area, each series alone (on the triplets the mean over the 20), linear from 0, with for Roney a dashed line for the part where the conic is not an ellipse or the system is nearly singular (`k_used = 3`, estimate NaN), without the part lost to the planar fit (`k_used < 3`). Numbers in `ratio_sweep.csv`, one row per scenario and series: r, non-estimable area (for Roney also its two parts), q50 and q90 of the three errors, and for the two per-face series `cond_q50`, `cond_q90` (faces with computed cond; on the triplets pooled): cond depends on r, and here it is part of the effect |
 
 Median, minimum and maximum over subsets count each subset once;
 the area weighting applies within each subset.

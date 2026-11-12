@@ -103,6 +103,7 @@ Scenarios (`simulator/make_truth.py`):
 |-----------|--------------|
 | `uniform` | AugmentA fibers, CV_L = 1.05, CV_T = 0.525 mm/ms on every face (r = 2) |
 | `painted` | AugmentA fibers; μ and α vary continuously, painted by hand (`simulator/painted_{alpha,mu}.ply`) |
+| `r1.2`, `r1.41`, `r1.6`, `r2.4`, `r3` | sweep in r: as `uniform` (same fibers, same μ), α = ½ ln r on every face with r = 1.2, √2, 1.6, 2.4, 3 |
 
 In `painted`, per vertex g = mean of R, G, B / 255 (0 black, 1 white; the
 alpha channel is ignored), then α = ½ ln 1.6 + g (½ ln 2.4 − ½ ln 1.6)

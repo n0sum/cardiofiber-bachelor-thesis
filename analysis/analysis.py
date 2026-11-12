@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Analysis of the experiment grid: for each scenario of SCENARIOS (the same list,
-in the same order, as run_all.sh) the 42 subsets of at least 3 maps with the per-face estimator
+in the same order, as run_all.sh: MAIN_SCENARIOS, then the rest of SWEEP) the 42
+subsets of at least 3 maps with the per-face estimator
 (output/SCENARIO/per_face/sub_*/) and the 20 triplets with method 2 of
 Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/), each with estimate.ply
 (format D) and estimate.csv.
@@ -52,17 +53,21 @@ plot0_cond_area.png, one point per subset from per_face.csv:
 cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and
 marker by k, in the title Spearman's rho over the 42 points.
 
-plot5_ratio.png, only on SCENARIO_RATIO (painted): errors and non-estimable area as a
-function of the true r = CV_L / CV_T (column r_true of load()). The faces are split
-once, on the ground truth, into 10 equal-area bins of true r, the same for every series,
-each at its area-weighted median r. Three series, one Okabe-Ito color each: per-face
-with the six maps on its estimable faces; per-face and Roney on the 20 triplets pooled
-(each face once per triplet, as the pooled rows of comparison.csv), on the faces paired
-with that triplet. 2 x 2 panels as plot 0a: angle, cv_l, ratio with q50 (solid line)
-and q90 (dashed) of the absolute value per bin, log vertical scale; and the
-non-estimable area, % of the area of the bin, of each series alone (on the triplets
-each method with its own lost area, not the paired one), linear from 0. The numbers
-are in ratio_bins.csv, one row per bin and series.
+plot5_ratio.png, the sweep in r: one point per scenario of SWEEP (uniform fields that
+differ only in alpha; uniform is r = 2), r on the horizontal axis, a dashed gray line
+at r = sqrt(2), above which the pedal curve of the front ellipse is not convex. Three
+series, one Okabe-Ito color each: per-face with the six maps on its estimable faces;
+per-face and Roney on the 20 triplets pooled (each face once per triplet, as the
+pooled rows of comparison.csv), on the faces paired with that triplet. 2 x 2 panels as
+plot 0a: angle, cv_l, ratio with q50 (solid line) and q90 (dashed) of the absolute
+value, log vertical scale; and the non-estimable area, % of the total area, of each
+series alone (on the triplets the mean over the 20), linear from 0, with for Roney a
+dashed line for the part where the conic is not an ellipse or the system is nearly
+singular (k_used = 3 and estimate NaN), i.e. without the part lost to the planar fit
+(k_used < 3). The numbers are in ratio_sweep.csv, one row per scenario and series,
+with the two parts of Roney's area and, for the two per-face series, cond_q50 and
+cond_q90 (over the faces with computed cond; on the triplets pooled): cond depends on
+r, and here it is part of the effect.
 
 The other figures, each in four PNGs: _area (non-estimable area, one panel) and
 _angle, _cv_l, _ratio. In plot 1 the latter have a single
@@ -71,9 +76,9 @@ points only without lines, with the vertical axis on a log scale and labels in
 plain numbers; in plot 4 three panels q50, q90, q99, each with its
 own scale. The other vertical axes, including the _area files, are linear from 0;
 in plot 4 also the horizontal axis, with the same limits.
-  plot1_maps_SCENARIO  one per scenario, as a function of k: one point per
+  plot1_maps_SCENARIO  one per scenario of MAIN_SCENARIOS, as a function of k: one point per
                        subset and quantile, staggered within each k
-  plot4_roney          one point per triplet and scenario, Roney on the horizontal axis and
+  plot4_roney          one point per triplet and scenario of MAIN_SCENARIOS, Roney on the horizontal axis and
                        per-face on the vertical axis, same limits on both axes,
                        one color (Okabe-Ito) and one marker per scenario, in the order of
                        the scenarios; on the axes only 0, minimum, centroid (mean of all
@@ -101,9 +106,11 @@ from roney import read_ply                                # the PLY reader
 REF = ROOT / "data" / "reference"
 OUT = ROOT / "output"
 FIG = OUT / "figures"
-SCENARIOS = ["uniform", "painted"]                        # as in run_all.sh: order of tables and plots 1, 4
+MAIN_SCENARIOS = ["uniform", "painted"]                   # plots 1 and 4
+SWEEP = [("r1.2", 1.2), ("r1.41", np.sqrt(2)), ("r1.6", 1.6),   # plot 5: uniform fields differing only in r,
+         ("uniform", 2.0), ("r2.4", 2.4), ("r3", 3.0)]         # in increasing r
+SCENARIOS = MAIN_SCENARIOS + [sc for sc, _ in SWEEP if sc not in MAIN_SCENARIOS]   # tables: order of run_all.sh
 SCENARIO_COND = "uniform"                                 # plot 0
-SCENARIO_RATIO = "painted"                                # plot 5
 ERRORS = ("angle", "cv_l", "ratio")
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
@@ -158,7 +165,6 @@ def load(scenario, method, sub):
     df = pd.read_csv(case / "estimate.csv").set_index("face_id")
     df["area"] = area
     df["estimable"] = np.isfinite(face["mu"])
-    df["r_true"] = r_true
     # |a.b|: angle between directions, unoriented
     df["angle"] = np.degrees(np.arccos(np.minimum(1, np.abs(np.sum(f * f_true, axis=1)))))
     df["cv_l"] = 100 * (cvl - cvl_true) / cvl_true
@@ -389,7 +395,7 @@ def main():
     plt.close(fig)
 
     # plot 1: for each scenario, as a function of k, points staggered within each k
-    for sc in SCENARIOS:
+    for sc in MAIN_SCENARIOS:
         g1 = per_face_table[per_face_table["scenario"] == sc].copy()
         i, n = g1.groupby("k").cumcount(), g1.groupby("k")["k"].transform("size")
         g1["x"] = g1["k"] + 0.6 * (i - (n - 1) / 2) / n
@@ -403,14 +409,14 @@ def main():
         figure(f"plot1_maps_{sc}", f"{sc}: one point per map subset", draw1, together=True)
 
     # plot 4: per-face vs Roney, one point per triplet and scenario
-    triplets = comparison[comparison["sub"] != "pooled"]
+    triplets = comparison[(comparison["sub"] != "pooled") & comparison["scenario"].isin(MAIN_SCENARIOS)]
     g4 = triplets[triplets["method"] == "roney"].merge(triplets[triplets["method"] == "per_face"],
                                                        on=["scenario", "sub"],
                                                        suffixes=("_roney", "_per_face"))
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()
-        for sc, color, marker in zip(SCENARIOS, OKABE_ITO, MARKERS):
+        for sc, color, marker in zip(MAIN_SCENARIOS, OKABE_ITO, MARKERS):
             s = g4[g4["scenario"] == sc]
             ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=color, marker=marker, label=sc,
                        zorder=3)
@@ -443,71 +449,80 @@ def main():
 
 
 def plot5():
-    """Plot 5 and ratio_bins.csv: errors and non-estimable area on SCENARIO_RATIO as a function of the
-    true r, in 10 equal-area bins of true r computed once on the ground truth."""
-    sc = SCENARIO_RATIO
-    area, (_, _, r_true) = truth(sc)
-    order = np.argsort(r_true)
-    w = area[order]
-    bins = np.empty(len(area), dtype=int)
-    bins[order] = np.minimum((10 * (np.cumsum(w) - 0.5 * w) / w.sum()).astype(int), 9)   # 10 equal-area bins
-    xc = np.array([wquantile(r_true[bins == b], area[bins == b], 0.50) for b in range(10)])
-
-    # each series: (label, color, all the faces for the area, faces for the errors)
-    all_maps = load(sc, "per_face", subs(sc, "per_face")[-1])
-    per_face, roney, paired_pf, paired_ro = [], [], [], []
-    for sub in subs(sc, "roney"):
-        pf, ro = load(sc, "per_face", sub), load(sc, "roney", sub)
-        both = pf["estimable"] & ro["estimable"]
-        per_face.append(pf)
-        roney.append(ro)
-        paired_pf.append(pf[both])
-        paired_ro.append(ro[both])
-    series = [("per-face, 6 maps", "#0072B2", all_maps, all_maps[all_maps["estimable"]]),
-              ("per-face, 20 triplets", "#009E73", pd.concat(per_face), pd.concat(paired_pf)),
-              ("Roney, 20 triplets", "#D55E00", pd.concat(roney), pd.concat(paired_ro))]
-
+    """Plot 5 and ratio_sweep.csv: errors and non-estimable area as a function of r, one point per
+    scenario of SWEEP."""
     rows = []
-    for label, _, everything, errors in series:
-        b_all, b_err = bins[everything.index], bins[errors.index]
-        for b in range(10):
-            row = {"scenario": sc, "series": label, "bin": b, "r_median": xc[b],
-                   "non_estimable_area_%": non_estimable(everything[b_all == b])}
-            e = errors[b_err == b]
-            for err in ERRORS:
+    for sc, r in SWEEP:
+        all_maps = load(sc, "per_face", subs(sc, "per_face")[-1])
+        per_face, roney, paired_pf, paired_ro = [], [], [], []
+        for sub in subs(sc, "roney"):
+            pf, ro = load(sc, "per_face", sub), load(sc, "roney", sub)
+            both = pf["estimable"] & ro["estimable"]
+            per_face.append(pf)
+            roney.append(ro)
+            paired_pf.append(pf[both])
+            paired_ro.append(ro[both])
+        per_face, roney = pd.concat(per_face), pd.concat(roney)
+        # (series, all the faces: area and cond, faces for the errors); on the triplets each face once per triplet
+        for label, everything, errors in (("per-face, 6 maps", all_maps, all_maps[all_maps["estimable"]]),
+                                          ("per-face, 20 triplets", per_face, pd.concat(paired_pf)),
+                                          ("Roney, 20 triplets", roney, pd.concat(paired_ro))):
+            row = {"scenario": sc, "r": r, "series": label, "non_estimable_area_%": non_estimable(everything)}
+            if label.startswith("Roney"):
+                lost = ~everything["estimable"]
+                w = everything["area"]
+                row["fit_k_used_lt3_area_%"] = 100 * w[lost & (everything["k_used"] < 3)].sum() / w.sum()
+                row["conic_k_used_3_area_%"] = 100 * w[lost & (everything["k_used"] == 3)].sum() / w.sum()
+            for e in ERRORS:
                 for q in (50, 90):
-                    row[f"{err}_q{q}"] = wquantile(e[err].abs(), e["area"], q / 100)
+                    row[f"{e}_q{q}"] = wquantile(errors[e].abs(), errors["area"], q / 100)
+            if not label.startswith("Roney"):
+                c = everything[everything["cond"].notna()]
+                for q in (50, 90):
+                    row[f"cond_q{q}"] = wquantile(c["cond"], c["area"], q / 100)
             rows.append(row)
     table = pd.DataFrame(rows)
-    table.to_csv(FIG / "ratio_bins.csv", index=False, float_format="%.6g")
+    table.to_csv(FIG / "ratio_sweep.csv", index=False, float_format="%.6g")
+
+    colors = {"per-face, 6 maps": "#0072B2", "per-face, 20 triplets": "#009E73", "Roney, 20 triplets": "#D55E00"}
+    rs = [r for _, r in SWEEP]
+
+    def r_axis(ax):
+        ax.axvline(np.sqrt(2), color="#888", lw=1, ls="--", label="r = √2", zorder=1)
+        ax.grid(alpha=0.3)
+        ax.set_xticks(rs, [f"{r:.3g}" for r in rs])
+        ax.set_xlabel("r = CV_L / CV_T")
 
     fig, axes = plt.subplots(2, 2, figsize=(10, 9), layout="constrained")
     axes = axes.flat
     for ax, e in zip(axes, ERRORS):
-        for label, color, _, _ in series:
+        for label, color in colors.items():
             t = table[table["series"] == label]
-            ax.plot(xc, t[f"{e}_q50"], color=color, lw=1.5, marker="o", ms=4, label=f"{label}, q50")
-            ax.plot(xc, t[f"{e}_q90"], color=color, lw=1.5, ls="--", marker="o", ms=4, mfc="white",
-                    label=f"{label}, q90")
-        ax.grid(alpha=0.3)
-        ax.set_xlabel("true r = CV_L / CV_T")
+            ax.plot(t["r"], t[f"{e}_q50"], color=color, lw=1.5, marker="o", ms=4, label=f"{label}, q50", zorder=3)
+            ax.plot(t["r"], t[f"{e}_q90"], color=color, lw=1.5, ls="--", marker="o", ms=4, mfc="white",
+                    label=f"{label}, q90", zorder=3)
+        r_axis(ax)
         y_axis(ax, YLABEL[e], log=True)
         ax.set_title(NAMES[e])
     ax = axes[3]
-    for label, color, _, _ in series:
+    for label, color in colors.items():
         t = table[table["series"] == label]
-        ax.plot(xc, t["non_estimable_area_%"], color=color, lw=1.5, marker="o", ms=4, label=label)
-    ax.grid(alpha=0.3)
-    ax.set_xlabel("true r = CV_L / CV_T")
-    y_axis(ax, "non-estimable area of the bin [%]")
+        ax.plot(t["r"], t["non_estimable_area_%"], color=color, lw=1.5, marker="o", ms=4, label=label, zorder=3)
+    t = table[table["series"] == "Roney, 20 triplets"]
+    roney_conic, = ax.plot(t["r"], t["conic_k_used_3_area_%"], color=colors["Roney, 20 triplets"], lw=1.5, ls="--",
+                           marker="o", ms=4, mfc="white", zorder=3,
+                           label="Roney, 20 triplets: conic not an ellipse or nearly singular (k_used = 3)")
+    r_axis(ax)
+    y_axis(ax, YLABEL["area"])
     ax.set_title("non-estimable area (each method alone)")
-    fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False)
-    fig.suptitle(f"{sc}: errors as a function of the true r, 10 equal-area bins of r\n"
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles + [roney_conic], labels + [roney_conic.get_label()], loc="outside lower center", ncol=3,
+               frameon=False)
+    fig.suptitle("uniform fields differing only in r (same mu, fibers and sites): errors and non-estimable area\n"
                  "per-face with 6 maps (its estimable faces); per-face and Roney on the 20 triplets pooled "
                  "(paired faces)\nq50 solid, q90 dashed, of |error|, area-weighted")
     fig.savefig(FIG / "plot5_ratio.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
-
 
 
 if __name__ == "__main__":

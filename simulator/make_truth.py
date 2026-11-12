@@ -23,10 +23,16 @@ Scenarios:
                 alpha = 1/2 ln 1.6 + g (1/2 ln 2.4 - 1/2 ln 1.6)   r from 1.6 to 2.4
                 mu    = -0.6 + 0.6 g                               e^mu from 0.55 to 1.0 mm/ms
               Per face the mean of the values of its three vertices.
+    r1.2, r1.41, r1.6, r2.4, r3
+              the sweep in r: mu of uniform, constant, and alpha = 1/2 ln r
+              constant, with r = 1.2, sqrt(2) exactly, 1.6, 2.4, 3; r = 2 is
+              uniform itself. Same fibers and mu as uniform: only the
+              flattening of the ellipse changes. Above r = sqrt(2) the pedal
+              curve of the front ellipse (the curve of the velocity vectors)
+              is no longer convex.
 
 Usage, from the repository root:
-    python simulator/make_truth.py uniform
-    python simulator/make_truth.py painted
+    python simulator/make_truth.py SCENARIO     # e.g. uniform, painted, r1.41
 """
 
 import sys
@@ -38,7 +44,10 @@ import numpy as np
 ROOT     = Path(__file__).resolve().parents[1]                    # repository root
 AUGMENTA = ROOT / "data" / "augmenta" / "LA_endo_with_fiber"      # without extension
 PAINTED  = ROOT / "simulator"                                     # painted_alpha.ply, painted_mu.ply
-SCENARIOS = ("uniform", "painted")
+MU_UNIFORM = (np.log(1.05) + np.log(0.525)) / 2                    # mu of uniform, also of the sweep in r
+SWEEP_ALPHA = {"r1.2": np.log(1.2) / 2, "r1.41": np.log(2) / 4,     # alpha = 1/2 ln r; r1.41 is r = sqrt(2)
+               "r1.6": np.log(1.6) / 2, "r2.4": np.log(2.4) / 2, "r3": np.log(3) / 2}
+SCENARIOS = ("uniform", "painted", *SWEEP_ALPHA)
 
 COMMENT = "mu = (ln CV_L + ln CV_T) / 2, alpha = (ln CV_L - ln CV_T) / 2, CV in mm/ms, natural log"
 
@@ -94,8 +103,11 @@ def main():
         cv_t = np.full(len(tri), 0.525)
         mu = (np.log(cv_l) + np.log(cv_t)) / 2
         alpha = (np.log(cv_l) - np.log(cv_t)) / 2
-    else:
+    elif scenario == "painted":
         mu, alpha = painted(tri)
+    else:
+        mu = np.full(len(tri), MU_UNIFORM)
+        alpha = np.full(len(tri), SWEEP_ALPHA[scenario])
 
     vertex = np.rec.fromarrays([pts[:, 0], pts[:, 1], pts[:, 2]],
                                dtype=[("x", "<f8"), ("y", "<f8"), ("z", "<f8")])
