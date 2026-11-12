@@ -12,7 +12,6 @@ add_executable(Estimate
         src/main.cpp
         src/ExperimentConfig.cpp
         src/io.cpp
-        src/GroundTruth.cpp
 )
 target_include_directories(Estimate PRIVATE src include)
 target_link_libraries(Estimate PRIVATE cardiofiber)

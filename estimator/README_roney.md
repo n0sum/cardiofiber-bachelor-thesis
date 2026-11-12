@@ -17,6 +17,17 @@ estimator. Short version:
   reported split by cause, and only the part due to the method itself is
   attributed to it.
 
+## Input and output
+
+`roney.py` reads only `data/reference/SCENARIO/lat.ply` (the LAT maps), never
+the ground truth, and for each triplet writes
+`output/SCENARIO/roney/sub_i-j-k/estimate.ply` (the estimate in format D:
+fiber in 3D projected on the plane of the face and normalised;
+μ = ¼ ln(λ1·λ2), α = ¼ ln(λ1/λ2), with λ1 ≥ λ2 the eigenvalues of M = P⁻¹;
+NaN on the non-estimable faces) and `estimate.csv` (`face_id,k_used`). The
+errors against the ground truth are computed by `load()` of
+`analysis/analysis.py`, with the same formulas as for the per-face estimator.
+
 ## The method in the paper (sections 2.3, 2.4, 2.6, 3.3)
 
 For each element:
@@ -99,7 +110,7 @@ the fiber towards a pair of parallel lines (CV_L → ∞). In a synthetic test
 (exact velocity vectors, random wavefront directions, r = 1.6–2.4) the
 optimiser always stopped at the upper bound of CV_L. The estimate would be
 set by the bounds of the optimiser, which the paper does not report, so these
-faces are counted as non-estimable (`k_used = 3`, `estimable = 0`).
+faces are counted as non-estimable (`k_used = 3`, NaN in `estimate.ply`).
 
 This loss is a property of the method, not of the reimplementation. The
 velocity vectors of plane wavefronts lie on the pedal curve of the wavefront
@@ -110,7 +121,7 @@ exact data.
 ### Singular-value threshold
 
 Some 3 × 3 systems are exactly singular (parallel wavefronts); without the
-threshold `np.linalg.solve` stops with "Singular matrix" on `aniso_zone_600`.
+threshold `np.linalg.solve` stops with "Singular matrix".
 The threshold has the same value as in the per-face estimator, but the rows
 here are built from velocity vectors, (mm/ms)², instead of gradients,
 (ms/mm)², so the same number does not mean the same thing in the two methods.
@@ -119,14 +130,10 @@ of the maps are close to collinear (section 4.2).
 
 ## What the differences do to the results
 
-Non-estimable area of Roney's method, mean over the 20 triplets:
-
-| scenario | planar fit (`k_used < 3`) | no ellipse or singular (`k_used = 3`) | total |
-|---|---|---|---|
-| `aniso_zone_1` | 10.8% | 11.6% | 22.5% |
-| `aniso_zone_8` | 11.9% | 30.6% | 42.4% |
-| `aniso_zone_70` | 15.8% | 26.0% | 41.8% |
-| `aniso_zone_600` | 17.7% | 24.9% | 42.6% |
+The non-estimable area of Roney's method splits in two parts, by
+`k_used` in `estimate.csv`: faces where a map of the triplet fails the planar
+fit (`k_used < 3`), and faces where all three maps pass but the conic is not
+an ellipse or the system is singular (`k_used = 3`, NaN in the estimate).
 
 - **Errors.** Errors are compared only on faces estimated by both methods
   (`comparison.csv`). On those faces all three maps pass the planar fit, so
@@ -135,12 +142,12 @@ Non-estimable area of Roney's method, mean over the 20 triplets:
   of the region (disc instead of square, same diameter) and the residual
   threshold, which decides which faces are paired. Paired faces are those
   where Roney has three clean maps and an ellipse.
-- **Non-estimable area.** The first column is due to our choices (threshold
+- **Non-estimable area.** The first part is due to our choices (threshold
   and no interpolation) and is not a shortcoming of the method. The second
-  column is due to the method. The total should not be presented as a
+  part is due to the method. The total should not be presented as a
   comparison of coverage between the two methods.
 - **Fidelity.** On our data the median fiber angle error of `roney.py` is
-  6.7–9.2°; the paper reports 10.7–12.1° with 3 maps (table 3). The data
+  in `comparison.csv` (`output/figures/`); the paper reports 10.7–12.1° with 3 maps (table 3). The data
   differ (monodomain simulations with the Courtemanche model there, eikonal
   here), and the published errors include the interpolated regions, so this
   is only an order-of-magnitude check.

@@ -1,11 +1,11 @@
 # Differential estimation of atrial conduction anisotropy
 
 Bachelor's thesis in geometry processing. On a left atrium with known fibers
-and conduction velocities (CV), six activation maps (LAT) are simulated;
-from these the conduction tensor (fiber direction, CV_L, CV_T) is estimated
-per face with the per-face gradient, and the estimate is validated against
-the known ground truth, also in comparison with method 2 of Roney et al. 2019
-(*Computers in Biology and Medicine* 104, 278-290).
+and conduction velocities (CV), six activation maps (LAT) are simulated with an
+eikonal solver; from the maps alone the conduction tensor (fiber direction,
+CV_L, CV_T) is estimated per face with the per-face gradient, and the estimate
+is validated against the known ground truth, also in comparison with method 2
+of Roney et al. 2019 (*Computers in Biology and Medicine* 104, 278-290).
 
 ```
 run_all.sh                     rebuilds data/reference/ and output/ from data/
@@ -14,19 +14,21 @@ data/
   external/biatrial_model_completeFit.h5      SSM (included)
   augmenta/LA_endo_with_fiber.{pts,elem,lon}  LA with fibers, AugmentA output (included)
 simulator/
+  make_truth.py                ground truth of a scenario in format D
   stage1/                      LA from the SSM (optional, see below), pacing sites
-    opencarp/                  mesh in um, per-zone tags, eikonal simulations
-  convert/                     from openCARP to PLY: LAT maps and per-face ground truth
 cardiofiber/                   estimation package (C++ library, glm only): mesh, per-vertex LAT maps
                                -> per-face gradient -> per-face tensor; cardiofiber/README.md
-estimator/                     project around the package: files, ground truth, errors
-  src/                         Estimate (C++): experiments from the .conf files, per-face errors.csv;
-                               ErrorMaps (C++): error PLYs for MeshLab
-  include/happly.h             vendored PLY reader (THIRD_PARTY.md)
-  roney.py                     method 2 of Roney et al. 2019
-analysis/analysis.py           area-weighted error statistics, figures, per_face.csv and comparison.csv
-experiments/                   template.conf and roney.conf, per-zone CV (region_cv/),
-                               subsets.py, error_maps.py; formats in experiments/README.md
+estimator/                     project around the package: files and executables
+  src/                         Simulate (C++): eikonal LAT maps from a format D field;
+                               Estimate (C++): experiments from the .conf files, estimate in format D;
+                               ErrorMaps (C++): error PLYs for MeshLab;
+                               FiberView (C++): a format D field as PLYs for MeshLab
+  include/happly.h             vendored PLY reader/writer (THIRD_PARTY.md)
+  roney.py                     method 2 of Roney et al. 2019, estimate in format D
+analysis/analysis.py           errors against the ground truth, area-weighted statistics,
+                               figures, per_face.csv and comparison.csv
+experiments/                   template.conf and roney.conf, subsets.py, error_maps.py;
+                               formats in experiments/README.md
 ```
 
 ## Requirements
@@ -35,8 +37,6 @@ experiments/                   template.conf and roney.conf, per-zone CV (region
 - conda, with the environment of `environment.yml` (Python 3.13.15, numpy, scipy,
   pandas, matplotlib, h5py, meshio, pyvista 0.48.4, vtk 9.6.2: exact
   versions in the file).
-- openCARP v19.0, from the standard `.deb` package (not ubuntu20):
-  <https://opencarp.org/download/installation>.
 - CMake >= 3.20 (tested 4.2.3), a C++20 compiler (tested GCC 15.2.0) and
   glm, header-only (on Ubuntu `libglm-dev`, tested 1.0.1).
 - Docker, only to optionally regenerate the AugmentA output.
@@ -75,94 +75,61 @@ conda env create -f environment.yml
 conda activate cardiofiber
 ```
 
-Install openCARP v19.0 (see *Requirements*), then from the root, with
-the `cardiofiber` environment active:
+Then from the root, with the `cardiofiber` environment active:
 
 ```bash
 ./run_all.sh
 ```
 
-The script converts the mesh to um, writes the scenario tags, runs the
-eikonal simulations (six pacing sites, `simulator/stage1/pacing_sites.csv`),
-builds `estimator/` in `estimator/build/`, deletes `output/` and computes
-a single experiment grid: for each scenario the per-face estimator on
-all 42 subsets of at least 3 maps and Roney's method on the 20
-triplets. Outputs in `output/`:
+The script builds `estimator/` in `estimator/build/`, then for each scenario
+(the list `SCENARIOS` at its top) writes the ground truth with
+`make_truth.py` and simulates the six LAT maps with `Simulate` (one pacing
+site per row of `simulator/stage1/pacing_sites.csv`). It then deletes
+`output/` and computes a single experiment grid: for each scenario the
+per-face estimator on all 42 subsets of at least 3 maps and Roney's method on
+the 20 triplets. The two estimators read only the LAT maps; the errors are
+computed afterwards by `analysis/analysis.py`, against the ground truth.
 
-| folder                                     | content                                            |
-|--------------------------------------------|----------------------------------------------------|
-| `aniso_zone_N/`                            | `confs/sub_*.conf`; `per_face/sub_*/errors.csv` (Estimate); `roney/sub_i-j-k/errors.csv` (`roney.py`); `error_maps.txt` next to the `errors.csv` of the error-PLY cases (`error_maps.py`) |
-| `figures/`                                 | `per_face.csv`, `comparison.csv` and 19 plots (`analysis.py`) |
-| `mesh/`                                    | 12 error PLYs, one per error and case, for MeshLab (`error_maps.py`) |
+Scenarios (`simulator/make_truth.py`):
 
-Scenarios: `aniso_zone_N`, the mesh divided into N random zones (seed 0), each zone
-with one of the 25 combinations of CV_L and r = CV_L/CV_T of
-`region_cv/aniso_random.csv`, N = 1, 8, 70, 600: mean zone diameter
-d = sqrt(4 A / (pi N)) ~ 123 / sqrt(N) mm, i.e. 123, 44, 15 and 5.0 mm, equal
-steps on a log scale. With N = 1 the CVs are uniform (tag 16 came out:
-CV_L 1.155, CV_T 0.722 mm/ms, r = 1.6); with N = 600 the zones are as large as
-the disc of Roney's method (diameter 5 mm), which assumes uniform CVs
-within it: with smaller zones the comparison would only measure that the
-assumption is violated. Details in `experiments/README.md`.
+| scenario  | ground truth |
+|-----------|--------------|
+| `uniform` | AugmentA fibers, CV_L = 1.05, CV_T = 0.525 mm/ms on every face (r = 2) |
 
-## Expected results
+Outputs:
 
-Errors are area-weighted over the estimable faces. For the fiber direction, the error is the angle, in degrees, between the estimated and the true fiber. For CV_L and for the ratio r, the error is the difference from the true value, taken without sign and expressed as a percentage of the true value.
+| folder                     | content |
+|----------------------------|---------|
+| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps) |
+| `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` next to the `estimate.ply` of the error-PLY cases (`error_maps.py`) |
+| `output/figures/`          | `per_face.csv`, `comparison.csv` and the plots (`analysis.py`) |
+| `output/mesh/`             | error PLYs, one per error and case, for MeshLab (`ErrorMaps`) |
 
-The tables are in `output/figures/`: `per_face.csv` for the per-face estimator
-(one row per scenario and subset), `comparison.csv` for the comparison with
-Roney.
-
-**aniso_zone_1**, six maps (`per_face.csv`, row `sub_0-1-2-3-4-5`):
-
-| non-estimable area | angle q50 | angle q90 | CV_L q50 | CV_L q90 | r q50 | r q90 |
-|--------|--------|-------|--------|--------|--------|---------|
-| 0.13 % | 0.907° | 4.27° | 0.67 % | 3.32 % | 1.30 % | 6.90 %  |
-
-**Map subsets** on `aniso_zone_1` (`per_face.csv`, errors on the
-estimable faces of each subset): with 3 maps, over the 20 triplets, non-estimable
-area 4.0-9.7 % (median 5.3 %), angle q50 1.17-1.76° (median
-1.37°), angle q90 9.2-15.0° (median 10.6°); with 6 maps the values of
-`aniso_zone_1`.
-
-**Zones**, six maps (`per_face.csv`, rows `sub_0-1-2-3-4-5`), d = mean zone diameter:
-
-| N   | d [mm] | non-estimable area | angle q50  | angle q90  | CV_L q50 | r q50  |
-|-----|--------|--------------------|------------|------------|----------|--------|
-| 600 | 5.03   | 1.29 %             | 1.78°      | 9.50°      | 1.99 %   | 4.69 % |
-| 70  | 14.7   | 0.57 %             | 1.22°      | 6.50°      | 1.34 %   | 2.99 % |
-| 8   | 43.6   | 0.42 %             | 0.882°     | 4.70°      | 1.00 %   | 2.16 % |
-| 1   | 123    | 0.13 %             | 0.907°     | 4.27°      | 0.67 %   | 1.30 % |
-
-**Roney vs per-face estimator**, map triplets
-
-| N   | paired area   | method   | non-estimable area | angle q50  | angle q90  | CV_L q50 | r q50  |
-|-----|---------------|----------|--------------------|------------|------------|----------|--------|
-| 1   | 75.7 %        | Roney    | 22.5 %             | 6.65°      | 21.2°      | 12.9 %   | 10.9 % |
-|     |               | per-face | 5.8 %              | 1.31°      | 9.08°      | 0.82 %   | 2.13 % |
-| 8   | 55.0 %        | Roney    | 42.4 %             | 9.16°      | 29.1°      | 13.2 %   | 14.6 % |
-|     |               | per-face | 9.8 %              | 1.34°      | 9.99°      | 1.08 %   | 3.24 % |
-| 70  | 54.8 %        | Roney    | 41.8 %             | 8.75°      | 30.2°      | 13.9 %   | 15.4 % |
-|     |               | per-face | 12.6 %             | 1.63°      | 12.4°      | 1.27 %   | 3.84 % |
-| 600 | 52.3 %        | Roney    | 42.6 %             | 8.69°      | 29.5°      | 15.0 %   | 17.8 % |
-|     |               | per-face | 16.3 %             | 2.38°      | 16.9°      | 1.89 %   | 6.40 % |
+The numbers are in `output/figures/`: `per_face.csv` for the per-face
+estimator (one row per scenario and subset), `comparison.csv` for the
+comparison with Roney on the map triplets. Errors are area-weighted over the
+estimable faces: the angle, in degrees, between the estimated and the true
+fiber; for CV_L and for the ratio r = CV_L / CV_T the difference from the
+true value, as a percentage of the true value. Figures and columns are
+described in `experiments/README.md`.
 
 ## Units and formats
 
-- Mesh and SSM in mm; openCARP wants um. Only lengths change: mm_to_um.py multiplies the coordinates by 1000 and run_sims.py multiplies the velocities by 1000 (mm/ms → um/ms). Time stays in ms, so the LAT that openCARP returns is used as is, and the estimated CVs come out in mm/ms. Unit errors are silent.
+- Lengths in mm, times in ms, velocities in mm/ms, everywhere: SSM, AugmentA
+  output, ground truth, LAT maps and estimates.
 - `.pts`: first line the number of vertices, then `x y z` per line.
-- `.elem`: first line the number of triangles, then `Tr i j k tag`, 0-based indices. In
-  `data/augmenta/` the tag is the AugmentA region (1-7, not used); in the scenario meshes
-  `data/reference/aniso_zone_N/` it is the velocity zone, a row of `aniso_random.csv`.
-  AugmentA flips the orientation of the triangles with respect to the SSM; the reference
-  connectivity is always `LA_endo_with_fiber.elem`.
+- `.elem`: first line the number of triangles, then `Tr i j k tag`, 0-based indices,
+  the tag is the AugmentA region (1-7, not used). AugmentA triangles have inward
+  normals; `make_truth.py` flips them once, and every file after it has
+  outward normals.
 - `.lon`: first line `2`, then per triangle fiber and sheet, three components each.
-- `experiments/region_cv/aniso_random.csv`: `region_tag,CV_L,CV_T` in mm/ms;
-  `run_sims.py` converts to mm/s for openCARP.
-- `data/reference/LA_LAT_NAME.ply`: binary PLY, per vertex `x y z` (mm) and
-  `lat_0 ... lat_5` (ms), `lat_k` from site k. `LA_GT_NAME.ply`: per face `fx fy fz` (fiber),
-  `CV_L CV_T` (mm/ms), `elem_tag`.
-- `output/aniso_zone_N/{per_face,roney}/sub_*/errors.csv`: one row per face; columns in `experiments/README.md`.
+- Format D (`truth.ply`, `estimate.ply`): binary PLY, per vertex `x y z`, per face
+  the triangle, the unit fiber `fx fy fz` and `mu`, `alpha` with
+  CV_L = e^(mu+alpha), CV_T = e^(mu-alpha); NaN on faces without a value.
+- `lat.ply`: binary PLY, per vertex `x y z lat_0 … lat_5` (mm, ms), faces as in
+  `truth.ply`; `lat_k` from site k.
+- `estimate.csv`, the `.conf` files, `error_maps.txt` and the PLYs for MeshLab:
+  `experiments/README.md`.
 
 ## Regenerating the LA and the fibers from the SSM (optional)
 

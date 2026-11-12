@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
 """
-Analysis of the experiment grid: for each scenario aniso_zone_N the 42
-subsets of at least 3 maps with the per-face estimator
-(output/SCENARIO/per_face/sub_*/errors.csv) and the 20 triplets with method 2 of
-Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/errors.csv).
+Analysis of the experiment grid: for each scenario (the folders of output/ with
+per_face/) the 42 subsets of at least 3 maps with the per-face estimator
+(output/SCENARIO/per_face/sub_*/) and the 20 triplets with method 2 of
+Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/), each with estimate.ply
+(format D) and estimate.csv.
 
 Usage, from the repository root:
     python analysis/analysis.py
 Writes everything to output/figures/.
 
-Errors per estimable face, read from errors.csv, which computes them (exportErrorsAsCsv in
-estimator/src/GroundTruth.cpp and estimator/roney.py); AREA-WEIGHTED statistics:
-  angle  err_angle, degrees
-  cv_l   err_cv_l = 100 (CV_L_est - CV_L_true) / CV_L_true, %
-  ratio  err_ratio = 100 (r_est - r_true) / r_true, %, r = CV_L / CV_T
-q50, q90 and q99 are computed on the absolute value; for cv_l and ratio there is
-also the signed median. cond = sigma_max / sigma_min of the system of a
-face; its quantiles, area-weighted, are over the faces with computed cond
-(estimable and discarded for lambda2 <= 1e-8 lambda1). d = sqrt(4 A / (pi N)) is the mean
-zone diameter in mm, A the total area.
+load() is the only place where the errors are computed, the same for the two
+methods: estimate.ply against the ground truth data/reference/SCENARIO/truth.ply,
+both in format D (CV_L = exp(mu + alpha), r = CV_L / CV_T = exp(2 alpha)).
+Errors per estimable face (mu of the estimate finite); AREA-WEIGHTED statistics:
+  angle  acos(min(1, |f_est . f_true|)), degrees
+  cv_l   100 (CV_L_est - CV_L_true) / CV_L_true, %
+  ratio  100 (r_est - r_true) / r_true, %
+q50, q90 and q99 (the values below which 50, 90, 99% of the area lies) are
+computed on the absolute value; for cv_l and ratio there is also the signed
+median. cond = sigma_max / sigma_min of the system of a face (per-face
+estimator only, from estimate.csv); its quantiles, area-weighted, are over the
+faces with computed cond (estimable, and discarded for lambda2 <= 1e-8 lambda1).
 
 per_face.csv, one row per scenario and subset of the per-face method: non-estimable
 area, errors on the estimable faces of the subset and q50, q90 and q99
@@ -31,46 +34,43 @@ pooled gather the paired faces of the 20 triplets of the scenario; their
 areas are the means over the triplets.
 
 Boxes of plots 0a and 0b: from q25 to q75, line at q50, whiskers from q10 to q90,
-area-weighted.
-plot0_cond_errors.png, aniso_zone_1, faces with computed cond of the 42
+area-weighted. Plot 0 only on SCENARIO_COND (uniform): cond depends on r, so
+it is compared only at equal r.
+plot0_cond_errors.png, faces with computed cond of the 42
 subsets pooled, in 10 equal-area cond bins, each at its
 median cond. Three panels angle, cv_l, ratio, one box per bin on its
 estimable faces, log scale on both axes, in the title the Spearman
 correlation between cond and error, unweighted; in a 2 x 2 square with the
 area panel: the % of area of the bin where the estimate is not an ellipse, i.e. the
-faces with cond but with the smaller eigenvalue lambda2 <= 1e-8 lambda1 (the estimated
-conic is a hyperbola, or an ellipse flat to numerical zero). The faces discarded because
-the smallest singular value is below threshold have no cond and do not appear.
-plot0_maps_cond.png, aniso_zone_1, one box of cond per k, on the faces
+faces with cond but with estimate NaN (the smaller eigenvalue lambda2 <= 1e-8 lambda1:
+the estimated conic is a hyperbola, or an ellipse flat to numerical zero). The faces
+discarded because the smallest singular value is below threshold have no cond and do
+not appear.
+plot0_maps_cond.png, one box of cond per k, on the faces
 with computed cond of all the subsets with k maps, log scale.
-plot0_cond_area.png, aniso_zone_1, one point per subset from per_face.csv:
+plot0_cond_area.png, one point per subset from per_face.csv:
 cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and
 marker by k, in the title Spearman's rho over the 42 points.
 
 The other figures, each in four PNGs: _area (non-estimable area, one panel) and
-_angle, _cv_l, _ratio. In plots 1 and 2 the latter have a single
+_angle, _cv_l, _ratio. In plot 1 the latter have a single
 panel with q50, q90 and q99 (circle, square, triangle, Okabe-Ito colors),
 points only without lines, with the vertical axis on a log scale and labels in
-plain numbers; in plots 3 and 4 three panels q50, q90, q99, each with its
+plain numbers; in plot 4 three panels q50, q90, q99, each with its
 own scale. The other vertical axes, including the _area files, are linear from 0;
 in plot 4 also the horizontal axis, with the same limits.
-  plot1_maps        aniso_zone_1, as a function of k: one point per
-                    subset and quantile, staggered within each k
-  plot2_zones       all maps, as a function of d: one point per
-                    scenario and quantile
-  plot3_zones_maps  as a function of d, for each k the median over the
-                    subsets and the band from minimum to maximum
-  plot4_roney       one point per triplet and scenario, Roney on the horizontal axis and
-                    per-face on the vertical axis, same limits on both axes,
-                    one color and one marker per scenario; on the axes only 0,
-                    minimum, centroid (mean of the 80 points, cross) and
-                    maximum of the cloud, with dotted projections and
-                    without grid
-Median, minimum and maximum over subsets count each subset once.
-In plots 2 and 3 the dashed line is the diameter of Roney's disc,
-2 patch.radius_mm of experiments/roney.conf.
+  plot1_maps_SCENARIO  one per scenario, as a function of k: one point per
+                       subset and quantile, staggered within each k
+  plot4_roney          one point per triplet and scenario, Roney on the horizontal axis and
+                       per-face on the vertical axis, same limits on both axes,
+                       one color (Okabe-Ito) and one marker per scenario, in the order of
+                       the scenarios; on the axes only 0, minimum, centroid (mean of all
+                       the points, cross) and maximum of the cloud, with dotted
+                       projections and without grid
 """
 
+import functools
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -83,9 +83,13 @@ from matplotlib.ticker import FormatStrFormatter, LogLocator, NullFormatter
 from scipy.stats import spearmanr
 
 ROOT = Path(__file__).resolve().parents[1]                # repository root
+sys.path.insert(0, str(ROOT / "estimator"))
+from roney import read_ply                                # the PLY reader
+
+REF = ROOT / "data" / "reference"
 OUT = ROOT / "output"
 FIG = OUT / "figures"
-SCENARIO_MAPS = "aniso_zone_1"                            # plot 1
+SCENARIO_COND = "uniform"                                 # plot 0
 ERRORS = ("angle", "cv_l", "ratio")
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
@@ -96,10 +100,8 @@ NAMES = {"angle": "fiber angle", "cv_l": "CV_L", "ratio": "CV_L / CV_T"}   # pan
 METHODS = {"per_face": "per-face", "roney": "Roney"}
 BLUE = "#2a78d6"
 QSTYLE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
-MARKERS = "osD^v"                                         # scenarios of plot 4
-COLORS_N = {1: "#000000", 8: "#0072B2", 70: "#D55E00", 600: "#009E73"}   # plot 4, by N, Okabe-Ito
-RONEY_DISC = 2 * float(next(l.split("=")[1] for l in open(ROOT / "experiments" / "roney.conf")
-                            if l.startswith("patch.radius_mm")))
+OKABE_ITO = ("#000000", "#0072B2", "#D55E00", "#009E73", "#E69F00", "#56B4E9", "#CC79A7")  # scenarios of plot 4
+MARKERS = "osD^v<>"                                       # scenarios of plot 4
 
 
 def wquantile(values, weights, q):
@@ -114,26 +116,51 @@ def wquantile(values, weights, q):
     return np.interp(q * cw[-1], cw - 0.5 * w, v)
 
 
-def load(path):
-    """errors.csv with the error columns, as written in it; relative ones in percent, NaN on the
-    non-estimable faces."""
-    df = pd.read_csv(path).set_index("face_id")
-    df["angle"] = df["err_angle"]
-    df["cv_l"] = df["err_cv_l"]
-    df["ratio"] = df["err_ratio"]
+def field(face):
+    """Fiber, CV_L and r = CV_L / CV_T per face, from the face element of a format D PLY."""
+    f = np.stack([face[k] for k in ("fx", "fy", "fz")], axis=1)
+    return f, np.exp(face["mu"] + face["alpha"]), np.exp(2 * face["alpha"])
+
+
+@functools.cache
+def truth(scenario):
+    """Area of each face (mm^2) and true field of a scenario, from data/reference/SCENARIO/truth.ply."""
+    ply = read_ply(REF / scenario / "truth.ply")
+    V = np.stack([ply["vertex"][k] for k in "xyz"], axis=1)
+    F = np.stack([ply["face"][k] for k in "abc"], axis=1)
+    area = np.linalg.norm(np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]]), axis=1) / 2
+    return area, field(ply["face"])
+
+
+def load(scenario, method, sub):
+    """One run, output/SCENARIO/METHOD/SUB/estimate.{ply,csv}, against the ground truth: DataFrame
+    indexed by face_id with area, estimable, cond (per-face) or k_used (Roney) and the errors angle,
+    cv_l, ratio (degrees, %, %), NaN on the non-estimable faces. The only place with the
+    formulas of the errors."""
+    area, (f_true, cvl_true, r_true) = truth(scenario)
+    case = OUT / scenario / method / sub
+    face = read_ply(case / "estimate.ply")["face"]
+    f, cvl, r = field(face)
+    df = pd.read_csv(case / "estimate.csv").set_index("face_id")
+    df["area"] = area
+    df["estimable"] = np.isfinite(face["mu"])
+    # |a.b|: angle between directions, unoriented
+    df["angle"] = np.degrees(np.arccos(np.minimum(1, np.abs(np.sum(f * f_true, axis=1)))))
+    df["cv_l"] = 100 * (cvl - cvl_true) / cvl_true
+    df["ratio"] = 100 * (r - r_true) / r_true
     return df
 
 
 def non_estimable(df):
     """% of non-estimable area."""
     w = df["area"]
-    return 100 * w[df["estimable"] == 0].sum() / w.sum()
+    return 100 * w[~df["estimable"]].sum() / w.sum()
 
 
 def quantiles(df):
     """q50, q90 and q99 of the absolute value of each error on the estimable faces, then the signed
     median of cv_l and ratio."""
-    est = df[df["estimable"] == 1]
+    est = df[df["estimable"]]
     w = est["area"]
     out = {f"{e}_q{q}": wquantile(est[e].abs(), w, q / 100) for e in ERRORS for q in QUANTILES}
     for e in ("cv_l", "ratio"):
@@ -147,32 +174,38 @@ def cond_quantiles(df):
     return {f"cond_q{q}": wquantile(c["cond"], c["area"], q / 100) for q in QUANTILES}
 
 
+def scenarios():
+    """The folders of output/ with per_face/, by name."""
+    return sorted(d.name for d in OUT.iterdir() if (d / "per_face").is_dir())
+
+
+def subs(scenario, method):
+    """The subsets of a run, by number of maps and then by name."""
+    return sorted((d.name for d in (OUT / scenario / method).glob("sub_*")), key=lambda s: (s.count("-"), s))
+
+
 def tables():
     """per_face.csv and comparison.csv, as DataFrames."""
     per_face_table, comparison = [], []
-    for sc_dir in sorted(OUT.glob("aniso_zone_*"), key=lambda p: int(p.name.removeprefix("aniso_zone_"))):
-        sc = sc_dir.name
-        n = int(sc.removeprefix("aniso_zone_"))
-        per_face = {d.name: load(d / "errors.csv") for d in (sc_dir / "per_face").glob("sub_*")}
-        roney = {d.name: load(d / "errors.csv") for d in (sc_dir / "roney").glob("sub_*")}
-        area = next(iter(per_face.values()))["area"]
-        head = {"scenario": sc, "N": n, "d": np.sqrt(4 * area.sum() / (np.pi * n))}
+    for sc in scenarios():
+        per_face = {sub: load(sc, "per_face", sub) for sub in subs(sc, "per_face")}
+        roney = {sub: load(sc, "roney", sub) for sub in subs(sc, "roney")}
 
-        for sub in sorted(per_face, key=lambda s: (s.count("-"), s)):
-            df = per_face[sub]
-            per_face_table.append({**head, "sub": sub, "k": sub.count("-") + 1,
+        for sub, df in per_face.items():
+            per_face_table.append({"scenario": sc, "sub": sub, "k": sub.count("-") + 1,
                                    "non_estimable_area_%": non_estimable(df), **quantiles(df), **cond_quantiles(df)})
 
         for method, runs in (("per_face", per_face), ("roney", roney)):
             rows, paired = [], []
-            for sub in sorted(roney):
+            for sub in roney:
                 df = runs[sub]
-                both = (roney[sub]["estimable"] == 1) & (per_face[sub]["estimable"] == 1)
-                rows.append({**head, "sub": sub, "method": method, "non_estimable_area_%": non_estimable(df),
-                             "paired_area_%": 100 * area[both].sum() / area.sum(), **quantiles(df[both])})
+                both = roney[sub]["estimable"] & per_face[sub]["estimable"]
+                rows.append({"scenario": sc, "sub": sub, "method": method,
+                             "non_estimable_area_%": non_estimable(df),
+                             "paired_area_%": 100 * df["area"][both].sum() / df["area"].sum(), **quantiles(df[both])})
                 paired.append(df[both])
             comparison += rows
-            comparison.append({**head, "sub": "pooled", "method": method,
+            comparison.append({"scenario": sc, "sub": "pooled", "method": method,
                                "non_estimable_area_%": np.mean([r["non_estimable_area_%"] for r in rows]),
                                "paired_area_%": np.mean([r["paired_area_%"] for r in rows]),
                                **quantiles(pd.concat(paired))})
@@ -260,14 +293,6 @@ def points(ax, x, df, cols):
         ax.scatter(x, df[col], s=24, color=color, marker=marker, label=label, zorder=3)
 
 
-def d_axis(ax):
-    """Horizontal axis d on a log scale, with the line of the diameter of Roney's disc."""
-    ax.axvline(RONEY_DISC, color="#555", lw=1, ls="--", label=f"Roney's disc diameter ({RONEY_DISC:g} mm)")
-    ax.set_xscale("log")
-    ax.xaxis.set_major_formatter(FormatStrFormatter("%g"))
-    ax.set_xlabel("mean zone diameter d [mm]")
-
-
 def boxes(ax, x, x0, x1, groups, col):
     """One box per group, in x from x0 to x1: from q25 to q75 of the absolute value of col, line at q50 and whiskers
     from q10 to q90, area-weighted."""
@@ -292,13 +317,13 @@ def main():
     per_face_table.to_csv(FIG / "per_face.csv", index=False, float_format="%.6g")
     comparison.to_csv(FIG / "comparison.csv", index=False, float_format="%.6g")
 
-    # plot 0a: aniso_zone_1, all subsets, error as a function of cond
-    df = pd.concat([load(d / "errors.csv").assign(k=d.name.count("-") + 1)
-                    for d in (OUT / SCENARIO_MAPS / "per_face").glob("sub_*")])
+    # plot 0a: SCENARIO_COND, all subsets, error as a function of cond
+    df = pd.concat([load(SCENARIO_COND, "per_face", sub).assign(k=sub.count("-") + 1)
+                    for sub in subs(SCENARIO_COND, "per_face")])
     c = df[df["cond"].notna()].sort_values("cond")
     w = c["area"]
     c["bin"] = np.minimum((10 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 9)   # 10 equal-area bins
-    est = c[c["estimable"] == 1]
+    est = c[c["estimable"]]
     xc = c.groupby("bin").apply(lambda s: wquantile(s["cond"], s["area"], 0.50)).to_numpy()
     h = 10 ** (0.4 * np.diff(np.log10(xc)).min())          # half width of the boxes, constant in log
     fig, axes = plt.subplots(2, 2, figsize=(10, 9), layout="constrained")
@@ -318,11 +343,11 @@ def main():
     y_axis(ax, "area where the estimate is not an ellipse [%]")
     ax.set_title("estimate is not an ellipse")
     boxes_note(fig)
-    fig.suptitle(f"{SCENARIO_MAPS}, all map subsets: error as a function of cond,\nequal-area bins")
+    fig.suptitle(f"{SCENARIO_COND}, all map subsets: error as a function of cond,\nequal-area bins")
     fig.savefig(FIG / "plot0_cond_errors.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
-    # plot 0b: aniso_zone_1, one box of cond per k
+    # plot 0b: SCENARIO_COND, one box of cond per k
     ks = np.array(sorted(c["k"].unique()))
     fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
     boxes(ax, ks, ks - 0.25, ks + 0.25, c.groupby("k"), "cond")
@@ -331,12 +356,12 @@ def main():
     ax.set_xlabel("maps used, k")
     y_axis(ax, "cond", log=True)
     boxes_note(fig)
-    fig.suptitle(f"{SCENARIO_MAPS}: distribution of cond by number of maps")
+    fig.suptitle(f"{SCENARIO_COND}: distribution of cond by number of maps")
     fig.savefig(FIG / "plot0_maps_cond.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
-    # plot 0c: aniso_zone_1, non-estimable area vs cond_q90, one point per subset
-    g0 = per_face_table[per_face_table["scenario"] == SCENARIO_MAPS]
+    # plot 0c: SCENARIO_COND, non-estimable area vs cond_q90, one point per subset
+    g0 = per_face_table[per_face_table["scenario"] == SCENARIO_COND]
     rho = spearmanr(g0["cond_q90"], g0["non_estimable_area_%"]).statistic
     fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
     for (k, s), (color, marker) in zip(g0.groupby("k"), (("#000000", "o"), ("#0072B2", "s"), ("#D55E00", "^"),
@@ -348,65 +373,37 @@ def main():
     log_scale(ax, "x")
     y_axis(ax, YLABEL["area"])
     fig.legend(*ax.get_legend_handles_labels(), loc="outside lower center", ncol=4, frameon=False)
-    fig.suptitle(f"{SCENARIO_MAPS}: non-estimable area and tail of cond, one point per map subset "
+    fig.suptitle(f"{SCENARIO_COND}: non-estimable area and tail of cond, one point per map subset "
                  f"(Spearman's ρ = {rho:.2f})")
     fig.savefig(FIG / "plot0_cond_area.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
-    # plot 1: aniso_zone_1, as a function of k, points staggered within each k
-    g1 = per_face_table[per_face_table["scenario"] == SCENARIO_MAPS].copy()
-    i, n = g1.groupby("k").cumcount(), g1.groupby("k")["k"].transform("size")
-    g1["x"] = g1["k"] + 0.6 * (i - (n - 1) / 2) / n
+    # plot 1: for each scenario, as a function of k, points staggered within each k
+    for sc in scenarios():
+        g1 = per_face_table[per_face_table["scenario"] == sc].copy()
+        i, n = g1.groupby("k").cumcount(), g1.groupby("k")["k"].transform("size")
+        g1["x"] = g1["k"] + 0.6 * (i - (n - 1) / 2) / n
 
+        def draw1(ax, cols, ylabel):
+            points(ax, g1["x"], g1, cols)
+            ax.set_xticks(sorted(g1["k"].unique()))
+            ax.set_xlabel("maps used, k")
+            y_axis(ax, ylabel, log=len(cols) > 1)
 
-    def draw1(ax, cols, ylabel):
-        points(ax, g1["x"], g1, cols)
-        ax.set_xticks(sorted(g1["k"].unique()))
-        ax.set_xlabel("maps used, k")
-        y_axis(ax, ylabel, log=len(cols) > 1)
-
-    figure("plot1_maps", f"{SCENARIO_MAPS}: one point per map subset", draw1, together=True)
-
-    # plot 2: all maps, as a function of d
-    g2 = per_face_table[per_face_table["k"] == per_face_table["k"].max()].sort_values("d")
-
-    def draw2(ax, cols, ylabel):
-        points(ax, g2["d"], g2, cols)
-        d_axis(ax)
-        y_axis(ax, ylabel, log=len(cols) > 1)
-
-    figure("plot2_zones", f"aniso_zone_N, per-face, all {g2['k'].iloc[0]} maps: one point per scenario", draw2,
-           together=True)
-
-    # plot 3: as a function of d, one line and one band per k
-    ks = sorted(per_face_table["k"].unique())
-    colors = dict(zip(ks, plt.cm.viridis(np.linspace(0, 0.55, len(ks)))))
-
-    def draw3(ax, cols, ylabel):
-        (col,) = cols.values()
-        for k in ks:
-            s = per_face_table[per_face_table["k"] == k].groupby("d")[col]
-            ax.fill_between(s.min().index, s.min(), s.max(), color=colors[k], alpha=0.15, lw=0)
-            ax.plot(s.median().index, s.median(), color=colors[k], lw=2, marker="o", ms=4, label=f"k = {k}")
-        d_axis(ax)
-        y_axis(ax, ylabel)
-
-    figure("plot3_zones_maps", "aniso_zone_N: median over map subsets of k maps, band from minimum to maximum",
-           draw3)
+        figure(f"plot1_maps_{sc}", f"{sc}: one point per map subset", draw1, together=True)
 
     # plot 4: per-face vs Roney, one point per triplet and scenario
     triplets = comparison[comparison["sub"] != "pooled"]
     g4 = triplets[triplets["method"] == "roney"].merge(triplets[triplets["method"] == "per_face"],
-                                                       on=["scenario", "N", "d", "sub"],
+                                                       on=["scenario", "sub"],
                                                        suffixes=("_roney", "_per_face"))
-    scenarios = g4.drop_duplicates("scenario").sort_values("d")
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()
-        for (sc, n, d), marker in zip(scenarios[["scenario", "N", "d"]].itertuples(index=False), MARKERS):
+        for sc, color, marker in zip(scenarios(), OKABE_ITO, MARKERS):
             s = g4[g4["scenario"] == sc]
-            ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=COLORS_N[n], marker=marker,
-                       label=f"N = {n} (d = {d:.0f} mm)" if d >= 10 else f"N = {n} (d = {d:.2g} mm)", zorder=3)
+            ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=color, marker=marker, label=sc,
+                       zorder=3)
         x, y = g4[f"{col}_roney"], g4[f"{col}_per_face"]
         lim = (0, 1.05 * max(x.max(), y.max()))
         ax.plot(lim, lim, color="#555", lw=1, label="y = x")
@@ -430,7 +427,8 @@ def main():
         ax.set_ylabel(f"{METHODS['per_face']}: {ylabel}")
 
     figure("plot4_roney", "map triplets: per-face vs Roney, paired faces (area: each method alone)\n"
-           "on the axes: min, centroid (mean over triplets) and max", draw4, after=separate_tick_labels)
+           "on the axes: min, centroid (mean of all the points) and max", draw4, after=separate_tick_labels)
+
 
 
 if __name__ == "__main__":

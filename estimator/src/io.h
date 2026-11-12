@@ -23,6 +23,8 @@ struct TensorPly {
 };
 
 TensorPly readTensorPly(const std::string& filename);
+// Binary little endian, with the comment line of format D; NaN values are written as they are.
+void writeTensorPly(const std::string& filename, const TensorPly& out);
 
 void exportAsPly(const std::string& filename, const cardiofiber::Mesh& mesh,
                  const std::vector<double>& faceQuality, const std::vector<bool>& writeFace);

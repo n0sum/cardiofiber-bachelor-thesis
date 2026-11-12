@@ -9,38 +9,36 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-python simulator/stage1/opencarp/mm_to_um.py      # -> data/reference/LA_um.*
-
-# scenarios aniso_zone_N: N random zones (seed 0), one of the 25 CV combinations of CV_CSV per zone;
-# d = sqrt(4 A / (pi N)) ~ 123, 44, 15, 5.0 mm, equal steps on a log scale; N = 1: uniform CVs,
-# N = 600: zones as large as Roney's disc (5 mm), which assumes uniform CVs within it
-ZONES="1 8 70 600"
-CV_CSV=experiments/region_cv/aniso_random.csv
-for n in $ZONES; do
-    s=aniso_zone_$n; mesh=data/reference/$s/LA_um
-    python simulator/stage1/opencarp/random_tags.py $s $CV_CSV 0 $n   # -> $mesh.*
-    python simulator/stage1/opencarp/run_sims.py $s $CV_CSV $mesh     # -> data/reference/sims/$s/run_*/act.igb
-    python simulator/convert/toPly.py $s $CV_CSV $mesh                # -> data/reference/LA_{LAT,GT}_$s.ply
-done
+# scenarios: ground truth of simulator/make_truth.py, one folder data/reference/SCENARIO/ each
+SCENARIOS="uniform"
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
 
+# ground truth in format D and the six LAT maps, one per row of pacing_sites.csv
+for s in $SCENARIOS; do
+    python simulator/make_truth.py $s                             # -> data/reference/$s/truth.ply
+    ./estimator/build/Simulate data/reference/$s/truth.ply simulator/stage1/pacing_sites.csv \
+        data/reference/$s/lat.ply                                 # -> data/reference/$s/lat.ply
+done
+
 rm -rf output                                     # no old results in the figures
 
 # grid: for each scenario all subsets of at least 3 maps with the per-face estimator,
-# and all triplets with method 2 of Roney et al. 2019
-for n in $ZONES; do
-    python experiments/subsets.py aniso_zone_$n   # -> output/aniso_zone_$n/confs/*.conf
+# and all triplets with method 2 of Roney et al. 2019; the estimators read only lat.ply
+for s in $SCENARIOS; do
+    python experiments/subsets.py $s              # -> output/$s/confs/*.conf
 done
-./estimator/build/Estimate output/aniso_zone_*/confs/*.conf   # -> output/SCENARIO/per_face/sub_*/errors.csv
-# -> output/SCENARIO/roney/sub_i-j-k/errors.csv
-python estimator/roney.py experiments/roney.conf $(for n in $ZONES; do echo aniso_zone_$n; done)
+for s in $SCENARIOS; do
+    ./estimator/build/Estimate output/$s/confs/*.conf   # -> output/$s/per_face/sub_*/estimate.{ply,csv}
+done
+python estimator/roney.py experiments/roney.conf $SCENARIOS   # -> output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
+
+# errors against data/reference/SCENARIO/truth.ply, statistics and figures
 python analysis/analysis.py                       # -> output/figures/
 
-# error maps in PLY: per-face with all maps on aniso_zone_1 and aniso_zone_600, and the two
-# methods on the triplet of aniso_zone_600 with the largest paired area; three PLYs per case, one per error
-# error_maps.py writes the errors of each case next to its errors.csv, in error_maps.txt
+# error maps in PLY: the cases are chosen in error_maps.py; three PLYs per case, one per error.
+# error_maps.py writes the errors of each case next to its estimate.ply, in error_maps.txt
 python experiments/error_maps.py | while read -r mesh numbers prefix; do
     ./estimator/build/ErrorMaps "$mesh" "$numbers" "$prefix"   # -> output/mesh/*_{angle,cv_l,ratio}.ply
 done

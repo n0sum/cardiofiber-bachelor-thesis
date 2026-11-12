@@ -9,13 +9,16 @@ solution of Roney's radial-residual fit, so the genetic algorithm is not
 needed.
 
 Usage, from the repository root:
-    python estimator/roney.py experiments/roney.conf aniso_zone_1 aniso_zone_70 ...
-Reads data/reference/LA_LAT_SCENARIO.ply and, only after the estimate,
-data/reference/LA_GT_SCENARIO.ply. The triplets are those of the lat_k maps
-of the LAT PLY; k is the site index. Writes
-output/SCENARIO/roney/sub_i-j-k/errors.csv, next to
-output/SCENARIO/per_face/ of the per-face estimator, with the columns of
-exportErrorsAsCsv in estimator/src/GroundTruth.cpp plus k_used.
+    python estimator/roney.py experiments/roney.conf SCENARIO [SCENARIO ...]
+Reads only data/reference/SCENARIO/lat.ply, never the ground truth. The
+triplets are those of the lat_k maps of lat.ply; k is the site index. Writes,
+next to output/SCENARIO/per_face/ of the per-face estimator,
+    output/SCENARIO/roney/sub_i-j-k/estimate.ply   the estimate in format D (mesh of
+                                                   lat.ply; NaN on the non-estimable faces)
+    output/SCENARIO/roney/sub_i-j-k/estimate.csv   face_id,k_used
+with mu = ln(lambda1 lambda2) / 4, alpha = ln(lambda1 / lambda2) / 4, lambda1 >= lambda2
+the eigenvalues of M = P^-1 (CV_L^2, CV_T^2). k_used: the maps of the triplet that pass
+the planar fit in the patch of the face (0-3).
 
 Units: gradients in ms/mm, velocities in mm/ms.
 """
@@ -30,9 +33,10 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import dijkstra
 
 ROOT = Path(__file__).resolve().parents[1]                # repository root
+sys.path.insert(0, str(ROOT / "simulator"))
+from make_truth import write_ply                          # the writer of format D
+
 KEYS = ["patch.radius_mm", "patch.n_points", "patch.seed", "fit.max_residual", "mask.min_singular_value"]
-COLUMNS = ["face_id", "area", "estimable", "k_used", "cond", "CV_L_est",
-           "CV_T_est", "CV_L_true", "CV_T_true", "err_angle", "err_cv_l", "err_ratio"]
 
 
 def read_conf(path):
@@ -46,8 +50,8 @@ def read_conf(path):
 
 
 def read_ply(path):
-    """Binary PLY from simulator/convert/toPly.py: vertices all float, faces
-    'list uchar int' followed by float/int properties."""
+    """Binary little endian PLY with vertices and triangles: vertex properties all scalar,
+    faces 'list uchar int' followed by scalar properties (double, float or int)."""
     f = open(path, "rb")
     elems, cur = {}, None
     while (line := f.readline().decode("ascii").strip()) != "end_header":
@@ -58,7 +62,7 @@ def read_ply(path):
         elif w[0] == "property" and w[1] == "list":
             elems[cur][1] += [("n", "u1"), ("a", "<i4"), ("b", "<i4"), ("c", "<i4")]
         elif w[0] == "property":
-            elems[cur][1].append((w[2], {"float": "<f4", "int": "<i4"}[w[1]]))
+            elems[cur][1].append((w[2], {"double": "<f8", "float": "<f4", "int": "<i4"}[w[1]]))
     out = {}
     for name, (n, dt) in elems.items():
         out[name] = np.fromfile(f, dtype=np.dtype(dt), count=n)
@@ -67,7 +71,7 @@ def read_ply(path):
 
 def geometry(V, F, radius, n_points, seed):
     """Per face: indices of the chosen points (padded with -1 up to n_points), 2D coordinates
-    (X, Y) of the points, map A (3x2) from the MDS plane to R^3, normal of the face."""
+    (X, Y) of the points, map A (3x2) from the MDS plane to R^3, unit normal of the face."""
     nv, nf = len(V), len(F)
     e = np.concatenate([F[:, [0, 1]], F[:, [1, 2]], F[:, [2, 0]]])
     e = np.unique(np.sort(e, axis=1), axis=0)
@@ -110,13 +114,13 @@ def geometry(V, F, radius, n_points, seed):
         XY[i, :len(sel)] = xy[sel]
 
     nrm = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
-    area = np.linalg.norm(nrm, axis=1) / 2
-    return pts, XY, A, nrm / np.linalg.norm(nrm, axis=1)[:, None], area
+    return pts, XY, A, nrm / np.linalg.norm(nrm, axis=1)[:, None]
 
 
 def estimate(X, ok, A, nrm, min_sv):
     """X: (nf, 3, 2) velocity vectors, ok: (nf,) all three maps valid.
-    Conic x^T P x = 1 through the three points; an ellipse with semi-axes CV_L, CV_T has conic M^-1, M = P^-1."""
+    Conic x^T P x = 1 through the three points; an ellipse with semi-axes CV_L, CV_T has conic M^-1, M = P^-1.
+    Returns ok, the eigenvalues lambda1 >= lambda2 of M (CV_L^2, CV_T^2) and the fiber in 3D."""
     R = np.stack([X[..., 0] ** 2, np.sqrt(2) * X[..., 0] * X[..., 1], X[..., 1] ** 2], axis=-1)
     R[~ok] = np.eye(3)                                    # dummy rows: the face stays non-estimable
     ok = ok & (np.linalg.svd(R, compute_uv=False)[:, -1] > min_sv)
@@ -132,7 +136,7 @@ def estimate(X, ok, A, nrm, min_sv):
     f -= np.sum(f * nrm, axis=1)[:, None] * nrm
     with np.errstate(divide="ignore", invalid="ignore"):
         f /= np.linalg.norm(f, axis=1)[:, None]
-    return ok, np.sqrt(lam), np.sqrt(lam2), f
+    return ok, lam, lam2, f
 
 
 def main():
@@ -141,12 +145,12 @@ def main():
 
     geo = None
     for scenario in sys.argv[2:]:
-        lat = read_ply(ROOT / "data" / "reference" / f"LA_LAT_{scenario}.ply")
+        lat = read_ply(ROOT / "data" / "reference" / scenario / "lat.ply")
         F = np.stack([lat["face"][k] for k in "abc"], axis=1).astype(np.int64)
         if geo is None:                                   # the mesh is the same in all scenarios
             V = np.stack([lat["vertex"][k] for k in "xyz"], axis=1).astype(np.float64)
             geo = geometry(V, F, radius, n_points, int(conf["patch.seed"]))
-            pts, XY, A, nrm, area = geo
+            pts, XY, A, nrm = geo
             real = pts >= 0
             D = np.concatenate([real[..., None] * 1.0, XY], axis=-1)   # rows [1, X, Y], zero if padded
             pinv = np.linalg.pinv(D)                      # (nf, 3, n_points)
@@ -175,24 +179,21 @@ def main():
             x = np.where(ok[:, None, None], x, 0.0)
             results[sub] = (k_used, *estimate(x, ok, A, nrm, conf["mask.min_singular_value"]))
 
-        gt = read_ply(ROOT / "data" / "reference" / f"LA_GT_{scenario}.ply")["face"]
-        fgt = np.stack([gt[k] for k in ("fx", "fy", "fz")], axis=1).astype(np.float64)
-        cvl_true, cvt_true = gt["CV_L"].astype(np.float64), gt["CV_T"].astype(np.float64)
-        for sub, (k_used, ok, cvl, cvt, f) in results.items():
-            ang = np.degrees(np.arccos(np.minimum(1, np.abs(np.sum(f * fgt, axis=1)))))
-            # relative errors in %, signed, r = CV_L / CV_T; the same formulas, and the one of the angle,
-            # are in exportErrorsAsCsv (estimator/src/GroundTruth.cpp): whoever changes one changes the other too
-            err_cvl = 100 * (cvl - cvl_true) / cvl_true
-            r_est, r_true = cvl / cvt, cvl_true / cvt_true
-            err_ratio = 100 * (r_est - r_true) / r_true
-            df = pd.DataFrame({"face_id": np.arange(len(F)), "area": area,
-                               "estimable": ok.astype(int), "k_used": k_used, "cond": np.nan, "CV_L_est": np.where(ok, cvl, np.nan),
-                               "CV_T_est": np.where(ok, cvt, np.nan), "CV_L_true": gt["CV_L"],
-                               "CV_T_true": gt["CV_T"], "err_angle": np.where(ok, ang, np.nan),
-                               "err_cv_l": np.where(ok, err_cvl, np.nan), "err_ratio": np.where(ok, err_ratio, np.nan)})[COLUMNS]
+        vertex = np.rec.fromarrays([lat["vertex"][k] for k in "xyz"], dtype=[("x", "<f8"), ("y", "<f8"), ("z", "<f8")])
+        for sub, (k_used, ok, lam, lam2, f) in results.items():
+            with np.errstate(divide="ignore", invalid="ignore"):
+                mu = np.where(ok, np.log(lam * lam2) / 4, np.nan)
+                alpha = np.where(ok, np.log(lam / lam2) / 4, np.nan)
+            f = np.where(ok[:, None], f, np.nan)
+            face = np.rec.fromarrays([np.full(len(F), 3), F[:, 0], F[:, 1], F[:, 2],
+                                      f[:, 0], f[:, 1], f[:, 2], mu, alpha],
+                                     dtype=[("n", "u1"), ("a", "<i4"), ("b", "<i4"), ("c", "<i4"),
+                                            ("fx", "<f8"), ("fy", "<f8"), ("fz", "<f8"),
+                                            ("mu", "<f8"), ("alpha", "<f8")])
             out = ROOT / "output" / scenario / "roney" / ("sub_" + "-".join(map(str, sub)))
             out.mkdir(parents=True, exist_ok=True)
-            df.to_csv(out / "errors.csv", index=False, float_format="%.9e")
+            write_ply(out / "estimate.ply", vertex, face)
+            pd.DataFrame({"face_id": np.arange(len(F)), "k_used": k_used}).to_csv(out / "estimate.csv", index=False)
 
 
 if __name__ == "__main__":

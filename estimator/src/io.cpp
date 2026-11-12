@@ -11,7 +11,7 @@ MultiLatPly readMultiLatPly(const std::string& filename, const std::vector<int>&
     happly::PLYData plyIn(filename);
     auto& v = plyIn.getElement("vertex");
 
-    // float32 in the file; happly converts to double, exactly
+    // double in lat.ply (Simulate)
     std::vector<double> x = v.getProperty<double>("x");
     std::vector<double> y = v.getProperty<double>("y");
     std::vector<double> z = v.getProperty<double>("z");
@@ -54,6 +54,40 @@ TensorPly readTensorPly(const std::string& filename) {
     in.mu = f.getProperty<double>("mu");
     in.alpha = f.getProperty<double>("alpha");
     return in;
+}
+
+void writeTensorPly(const std::string& filename, const TensorPly& out) {
+    std::vector<double> x(out.vertices.size()), y(out.vertices.size()), z(out.vertices.size());
+    for (size_t i = 0; i < out.vertices.size(); ++i) {
+        x[i] = out.vertices[i].x;
+        y[i] = out.vertices[i].y;
+        z[i] = out.vertices[i].z;
+    }
+    std::vector<std::vector<int>> vertex_indices(out.faces.size());
+    std::vector<double> fx(out.faces.size()), fy(out.faces.size()), fz(out.faces.size());
+    for (size_t i = 0; i < out.faces.size(); ++i) {
+        vertex_indices[i] = {out.faces[i].a, out.faces[i].b, out.faces[i].c};
+        fx[i] = out.fibers[i].x;
+        fy[i] = out.fibers[i].y;
+        fz[i] = out.fibers[i].z;
+    }
+
+    happly::PLYData plyOut;
+    plyOut.comments.push_back("mu = (ln CV_L + ln CV_T) / 2, alpha = (ln CV_L - ln CV_T) / 2, CV in mm/ms, natural log");
+    plyOut.addElement("vertex", out.vertices.size());
+    auto& v = plyOut.getElement("vertex");
+    v.addProperty<double>("x", x);
+    v.addProperty<double>("y", y);
+    v.addProperty<double>("z", z);
+    plyOut.addElement("face", out.faces.size());
+    auto& f = plyOut.getElement("face");
+    f.addListProperty<int>("vertex_indices", vertex_indices);
+    f.addProperty<double>("fx", fx);
+    f.addProperty<double>("fy", fy);
+    f.addProperty<double>("fz", fz);
+    f.addProperty<double>("mu", out.mu);
+    f.addProperty<double>("alpha", out.alpha);
+    plyOut.write(filename, happly::DataFormat::Binary);
 }
 
 void exportAsPly(const std::string &filename, const cardiofiber::Mesh& mesh, const std::vector<double>& faceQuality,

@@ -5,16 +5,16 @@
 #include "io.h"
 
 // Usage, from the repository root:
-// The error is the quality of the face; only
+//   ./estimator/build/ErrorMaps MESH.ply NUMBERS.txt PREFIX
+// MESH.ply: a PLY of the mesh (vertices and faces; e.g. a lat.ply), faces used as they are, nothing is flipped.
+// NUMBERS.txt: one row per face, "estimable angle cv_l ratio" (experiments/error_maps.py).
+// Writes PREFIX_{angle,cv_l,ratio}.ply. The error is the quality of the face; only
 // the faces with estimable = 1 are written, the same in the three files: a NaN quality crashes MeshLab.
 // The vertices are all written, so the face indices do not change.
 
 int main(int argc, char** argv) {
     const MultiLatPly in = readMultiLatPly(argv[1], {});
-    std::vector<cardiofiber::Face> reversedFaces(in.faces.size());
-    for (size_t i = 0; i < in.faces.size(); ++i)
-        reversedFaces[i] = {in.faces[i].a, in.faces[i].c, in.faces[i].b};
-    const cardiofiber::Mesh mesh(in.vertices, reversedFaces, {});
+    const cardiofiber::Mesh mesh(in.vertices, in.faces, {});
 
     std::vector<bool> estimable;
     std::vector<double> angle, cvL, ratio;

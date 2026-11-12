@@ -9,8 +9,9 @@ its .conf and of its output folder.
 
 Usage, from the repository root:
     python experiments/subsets.py SCENARIO
-The .conf files go to output/SCENARIO/confs/, the outputs of Estimate to
-output/SCENARIO/per_face/sub_.../errors.csv; the folder of each errors.csv is
+Reads data/reference/SCENARIO/lat.ply. The .conf files go to
+output/SCENARIO/confs/, the outputs of Estimate to
+output/SCENARIO/per_face/sub_.../estimate.{ply,csv}; the folder of each output is
 created here.
 """
 
@@ -25,17 +26,17 @@ SITES = ROOT / "simulator" / "stage1" / "pacing_sites.csv"
 MIN_MAPS = 3                                              # kMinGradients in cardiofiber/src/Mesh.cpp
 
 
-def write_conf(path, scenario, maps, output_csv):
-    """Writes a .conf to path: the thresholds of template.conf plus scenario, maps and output.
-    Also creates the folder of output_csv: Estimate does not create it."""
-    keys = {"lat_ply": f"data/reference/LA_LAT_{scenario}.ply",
-            "ground_truth_ply": f"data/reference/LA_GT_{scenario}.ply",
+def write_conf(path, scenario, maps, output_dir):
+    """Writes a .conf to path: the thresholds of template.conf plus input, maps and outputs.
+    Also creates output_dir: Estimate does not create it."""
+    keys = {"lat_ply": f"data/reference/{scenario}/lat.ply",
             "maps": maps,
-            "output_csv": output_csv}
+            "output_ply": f"{output_dir}/estimate.ply",
+            "output_csv": f"{output_dir}/estimate.csv"}
     lines = [l for l in MODEL.read_text().splitlines() if l.strip() and not l.startswith("#")]
     lines += [f"{k} = {v}" for k, v in keys.items()]
     path.parent.mkdir(parents=True, exist_ok=True)
-    (ROOT / output_csv).parent.mkdir(parents=True, exist_ok=True)
+    (ROOT / output_dir).mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n")
 
 
@@ -47,7 +48,7 @@ def main():
         for subset in itertools.combinations(maps, k):
             sub_name = "sub_" + "-".join(map(str, subset))
             write_conf(ROOT / out_dir / "confs" / f"{sub_name}.conf", scenario,
-                       ",".join(map(str, subset)), f"{out_dir}/per_face/{sub_name}/errors.csv")
+                       ",".join(map(str, subset)), f"{out_dir}/per_face/{sub_name}")
 
 
 if __name__ == "__main__":

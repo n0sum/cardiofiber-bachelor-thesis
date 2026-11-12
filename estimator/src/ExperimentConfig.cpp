@@ -23,9 +23,9 @@ ExperimentConfig loadExperimentConfig(const std::string& path) {
 
     ExperimentConfig c;
     c.latPly = kv.at("lat_ply");
-    c.groundTruthPly = kv.at("ground_truth_ply");
-    c.outputCsv = kv.at("output_csv");
     c.maps = parseMapList(kv.at("maps"));
     c.minSingularValue = std::stod(kv.at("mask.min_singular_value"));
+    c.outputPly = kv.at("output_ply");
+    c.outputCsv = kv.at("output_csv");
     return c;
 }
