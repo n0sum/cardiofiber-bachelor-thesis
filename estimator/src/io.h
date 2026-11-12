@@ -12,5 +12,17 @@ struct MultiLatPly {
 
 MultiLatPly readMultiLatPly(const std::string& filename, const std::vector<int>& maps);
 
+// Conduction field in format D: CV_L = exp(mu + alpha), CV_T = exp(mu - alpha), mm/ms.
+// Faces as in the file (normals already outwards); NaN on faces without a value.
+struct TensorPly {
+    std::vector<glm::dvec3> vertices;
+    std::vector<cardiofiber::Face> faces;
+    std::vector<glm::dvec3> fibers;   // per face
+    std::vector<double> mu;           // per face
+    std::vector<double> alpha;        // per face
+};
+
+TensorPly readTensorPly(const std::string& filename);
+
 void exportAsPly(const std::string& filename, const cardiofiber::Mesh& mesh,
                  const std::vector<double>& faceQuality, const std::vector<bool>& writeFace);

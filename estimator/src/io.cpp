@@ -27,6 +27,35 @@ MultiLatPly readMultiLatPly(const std::string& filename, const std::vector<int>&
     return in;
 }
 
+TensorPly readTensorPly(const std::string& filename) {
+    TensorPly in;
+
+    happly::PLYData plyIn(filename);
+    auto& v = plyIn.getElement("vertex");
+    auto& f = plyIn.getElement("face");
+
+    std::vector<double> x = v.getProperty<double>("x");
+    std::vector<double> y = v.getProperty<double>("y");
+    std::vector<double> z = v.getProperty<double>("z");
+
+    in.vertices.resize(x.size());
+    for (size_t i = 0; i < x.size(); ++i) in.vertices[i] = glm::dvec3(x[i], y[i], z[i]);
+
+    const std::vector<std::vector<int>> prov_faces = f.getListProperty<int>("vertex_indices");
+    in.faces.reserve(prov_faces.size());
+    for (const std::vector<int>& face : prov_faces) in.faces.emplace_back(face[0], face[1], face[2]);
+
+    std::vector<double> fx = f.getProperty<double>("fx");
+    std::vector<double> fy = f.getProperty<double>("fy");
+    std::vector<double> fz = f.getProperty<double>("fz");
+    in.fibers.resize(fx.size());
+    for (size_t i = 0; i < fx.size(); ++i) in.fibers[i] = glm::dvec3(fx[i], fy[i], fz[i]);
+
+    in.mu = f.getProperty<double>("mu");
+    in.alpha = f.getProperty<double>("alpha");
+    return in;
+}
+
 void exportAsPly(const std::string &filename, const cardiofiber::Mesh& mesh, const std::vector<double>& faceQuality,
                  const std::vector<bool>& writeFace) {
     const std::vector<glm::dvec3>& vPos = mesh.vertices();

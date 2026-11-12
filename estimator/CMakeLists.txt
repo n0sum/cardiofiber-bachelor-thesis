@@ -29,3 +29,10 @@ add_executable(Simulate
 )
 target_include_directories(Simulate PRIVATE src include)
 target_link_libraries(Simulate PRIVATE cardiofiber)
+
+add_executable(FiberView
+        src/FiberView.cpp
+        src/io.cpp
+)
+target_include_directories(FiberView PRIVATE src include)
+target_link_libraries(FiberView PRIVATE cardiofiber)
