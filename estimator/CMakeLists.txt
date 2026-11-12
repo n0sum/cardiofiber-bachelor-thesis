@@ -23,3 +23,9 @@ add_executable(ErrorMaps
 )
 target_include_directories(ErrorMaps PRIVATE src include)
 target_link_libraries(ErrorMaps PRIVATE cardiofiber)
+
+add_executable(Simulate
+        src/Simulate.cpp
+)
+target_include_directories(Simulate PRIVATE src include)
+target_link_libraries(Simulate PRIVATE cardiofiber)
