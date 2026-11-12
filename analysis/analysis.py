@@ -52,6 +52,18 @@ plot0_cond_area.png, one point per subset from per_face.csv:
 cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and
 marker by k, in the title Spearman's rho over the 42 points.
 
+plot5_ratio.png, only on SCENARIO_RATIO (painted): errors and non-estimable area as a
+function of the true r = CV_L / CV_T (column r_true of load()). The faces are split
+once, on the ground truth, into 10 equal-area bins of true r, the same for every series,
+each at its area-weighted median r. Three series, one Okabe-Ito color each: per-face
+with the six maps on its estimable faces; per-face and Roney on the 20 triplets pooled
+(each face once per triplet, as the pooled rows of comparison.csv), on the faces paired
+with that triplet. 2 x 2 panels as plot 0a: angle, cv_l, ratio with q50 (solid line)
+and q90 (dashed) of the absolute value per bin, log vertical scale; and the
+non-estimable area, % of the area of the bin, of each series alone (on the triplets
+each method with its own lost area, not the paired one), linear from 0. The numbers
+are in ratio_bins.csv, one row per bin and series.
+
 The other figures, each in four PNGs: _area (non-estimable area, one panel) and
 _angle, _cv_l, _ratio. In plot 1 the latter have a single
 panel with q50, q90 and q99 (circle, square, triangle, Okabe-Ito colors),
@@ -91,6 +103,7 @@ OUT = ROOT / "output"
 FIG = OUT / "figures"
 SCENARIOS = ["uniform", "painted"]                        # as in run_all.sh: order of tables and plots 1, 4
 SCENARIO_COND = "uniform"                                 # plot 0
+SCENARIO_RATIO = "painted"                                # plot 5
 ERRORS = ("angle", "cv_l", "ratio")
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
@@ -145,6 +158,7 @@ def load(scenario, method, sub):
     df = pd.read_csv(case / "estimate.csv").set_index("face_id")
     df["area"] = area
     df["estimable"] = np.isfinite(face["mu"])
+    df["r_true"] = r_true
     # |a.b|: angle between directions, unoriented
     df["angle"] = np.degrees(np.arccos(np.minimum(1, np.abs(np.sum(f * f_true, axis=1)))))
     df["cv_l"] = 100 * (cvl - cvl_true) / cvl_true
@@ -424,6 +438,75 @@ def main():
 
     figure("plot4_roney", "map triplets: per-face vs Roney, paired faces (area: each method alone)\n"
            "on the axes: min, centroid (mean of all the points) and max", draw4, after=separate_tick_labels)
+
+    plot5()
+
+
+def plot5():
+    """Plot 5 and ratio_bins.csv: errors and non-estimable area on SCENARIO_RATIO as a function of the
+    true r, in 10 equal-area bins of true r computed once on the ground truth."""
+    sc = SCENARIO_RATIO
+    area, (_, _, r_true) = truth(sc)
+    order = np.argsort(r_true)
+    w = area[order]
+    bins = np.empty(len(area), dtype=int)
+    bins[order] = np.minimum((10 * (np.cumsum(w) - 0.5 * w) / w.sum()).astype(int), 9)   # 10 equal-area bins
+    xc = np.array([wquantile(r_true[bins == b], area[bins == b], 0.50) for b in range(10)])
+
+    # each series: (label, color, all the faces for the area, faces for the errors)
+    all_maps = load(sc, "per_face", subs(sc, "per_face")[-1])
+    per_face, roney, paired_pf, paired_ro = [], [], [], []
+    for sub in subs(sc, "roney"):
+        pf, ro = load(sc, "per_face", sub), load(sc, "roney", sub)
+        both = pf["estimable"] & ro["estimable"]
+        per_face.append(pf)
+        roney.append(ro)
+        paired_pf.append(pf[both])
+        paired_ro.append(ro[both])
+    series = [("per-face, 6 maps", "#0072B2", all_maps, all_maps[all_maps["estimable"]]),
+              ("per-face, 20 triplets", "#009E73", pd.concat(per_face), pd.concat(paired_pf)),
+              ("Roney, 20 triplets", "#D55E00", pd.concat(roney), pd.concat(paired_ro))]
+
+    rows = []
+    for label, _, everything, errors in series:
+        b_all, b_err = bins[everything.index], bins[errors.index]
+        for b in range(10):
+            row = {"scenario": sc, "series": label, "bin": b, "r_median": xc[b],
+                   "non_estimable_area_%": non_estimable(everything[b_all == b])}
+            e = errors[b_err == b]
+            for err in ERRORS:
+                for q in (50, 90):
+                    row[f"{err}_q{q}"] = wquantile(e[err].abs(), e["area"], q / 100)
+            rows.append(row)
+    table = pd.DataFrame(rows)
+    table.to_csv(FIG / "ratio_bins.csv", index=False, float_format="%.6g")
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 9), layout="constrained")
+    axes = axes.flat
+    for ax, e in zip(axes, ERRORS):
+        for label, color, _, _ in series:
+            t = table[table["series"] == label]
+            ax.plot(xc, t[f"{e}_q50"], color=color, lw=1.5, marker="o", ms=4, label=f"{label}, q50")
+            ax.plot(xc, t[f"{e}_q90"], color=color, lw=1.5, ls="--", marker="o", ms=4, mfc="white",
+                    label=f"{label}, q90")
+        ax.grid(alpha=0.3)
+        ax.set_xlabel("true r = CV_L / CV_T")
+        y_axis(ax, YLABEL[e], log=True)
+        ax.set_title(NAMES[e])
+    ax = axes[3]
+    for label, color, _, _ in series:
+        t = table[table["series"] == label]
+        ax.plot(xc, t["non_estimable_area_%"], color=color, lw=1.5, marker="o", ms=4, label=label)
+    ax.grid(alpha=0.3)
+    ax.set_xlabel("true r = CV_L / CV_T")
+    y_axis(ax, "non-estimable area of the bin [%]")
+    ax.set_title("non-estimable area (each method alone)")
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False)
+    fig.suptitle(f"{sc}: errors as a function of the true r, 10 equal-area bins of r\n"
+                 "per-face with 6 maps (its estimable faces); per-face and Roney on the 20 triplets pooled "
+                 "(paired faces)\nq50 solid, q90 dashed, of |error|, area-weighted")
+    fig.savefig(FIG / "plot5_ratio.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
 
 
 
