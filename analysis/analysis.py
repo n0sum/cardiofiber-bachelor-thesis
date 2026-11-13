@@ -8,8 +8,15 @@ Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/), each with estimate.ply
 (format D) and estimate.csv.
 
 Usage, from the repository root:
-    python analysis/analysis.py
-Writes everything to output/figures/.
+    python analysis/analysis.py [NOISE]
+Without NOISE writes everything to output/figures/. With NOISE (e.g. 0.1, the
+standard deviation in ms of the noise on the LATs, NOISES in run_all.sh) the
+scenarios SCENARIO_noiseNOISE take the place of the clean ones, with the same
+roles (MAIN_SCENARIOS, PLOT1_SCENARIOS, SWEEP, SCENARIOS, SCENARIO_COND) and the
+same legend labels; the title of every figure gives the noise ("LAT noise
+σ = 0.1 ms") and everything goes to output/figures_noiseNOISE/. NOISE is read
+only when analysis.py runs as a script: importing it (error_maps.py) gives the
+clean configuration.
 
 load() is the only place where the errors are computed, the same for the two
 methods: estimate.ply against the ground truth data/reference/SCENARIO/truth.ply,
@@ -128,6 +135,14 @@ BLUE = "#2a78d6"
 QSTYLE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
 OKABE_ITO = ("#000000", "#0072B2", "#D55E00", "#009E73", "#E69F00", "#56B4E9", "#CC79A7")  # scenarios of plots 3, 4
 MARKERS = "osD^v<>"                                       # scenarios of plot 4
+NOISE_TITLE = ""                                          # with NOISE: "LAT noise σ = NOISE ms"
+
+
+def with_noise(title):
+    """The title of a figure, with the noise on the LATs on a line of its own if there is any."""
+    if NOISE_TITLE:
+        return f"{title}\n{NOISE_TITLE}"
+    return title
 
 
 def wquantile(values, weights, q):
@@ -254,7 +269,7 @@ def tables():
 
 
 def figure(name, title, draw, together=False, after=None):
-    """Four PNGs, output/figures/NAME_{area,angle,mean_cv,ratio}.png. draw(ax, cols, ylabel) draws
+    """Four PNGs, FIG/NAME_{area,angle,mean_cv,ratio}.png. draw(ax, cols, ylabel) draws
     in one panel the columns of cols, {label: column}. With together q50, q90 and q99 are in a
     single panel, otherwise one panel per quantile. after(fig), if given, is called before saving."""
     for q, ylabel in YLABEL.items():
@@ -273,7 +288,7 @@ def figure(name, title, draw, together=False, after=None):
         handles, labels = axes[0, 0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="outside lower center", ncol=min(len(labels), 6 if len(panels) > 1 else 4),
                    frameon=False)
-        fig.suptitle(title)
+        fig.suptitle(with_noise(title))
         if after:
             after(fig)
         fig.savefig(FIG / f"{name}_{q}.png", dpi=140, bbox_inches="tight")
@@ -373,7 +388,7 @@ def main():
             ax.plot(xc, y, color=color, marker=marker, ms=5, lw=1.5, label=f"q{q}", zorder=3)
         ax.grid(alpha=0.3)
         ax.set_xlabel("cond, median of the bin (log scale)")
-        ax.set_ylabel(f"{YLABEL[e]} (log scale)")
+        ax.set_ylabel(f"{YLABEL[e]}\n(log scale)")             # two lines: the labels are long
         log_scale(ax, "xy")
         ax.set_title(f"{NAMES[e]}, Spearman's ρ = {spearmanr(est['cond'], est[e].abs()).statistic:.2f}")
     ax = axes[3]
@@ -385,7 +400,7 @@ def main():
     ax.set_title("estimate is not an ellipse")
     fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False,
                title="quantiles of |error| in the bin, area-weighted")
-    fig.suptitle(f"{SCENARIO_COND}, all map subsets: error as a function of cond, 10 equal-area bins")
+    fig.suptitle(with_noise(f"{SCENARIO_COND}, all map subsets: error as a function of cond, 10 equal-area bins"))
     fig.savefig(FIG / "plot0_cond_errors.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -398,7 +413,7 @@ def main():
     ax.set_xlabel("maps used, k")
     y_axis(ax, "cond", log=True)
     boxes_note(fig)
-    fig.suptitle(f"{SCENARIO_COND}: distribution of cond by number of maps")
+    fig.suptitle(with_noise(f"{SCENARIO_COND}: distribution of cond by number of maps"))
     fig.savefig(FIG / "plot0_maps_cond.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -415,8 +430,8 @@ def main():
     log_scale(ax, "x")
     y_axis(ax, YLABEL["area"])
     fig.legend(*ax.get_legend_handles_labels(), loc="outside lower center", ncol=4, frameon=False)
-    fig.suptitle(f"{SCENARIO_COND}: non-estimable area and tail of cond, one point per map subset "
-                 f"(Spearman's ρ = {rho:.2f})")
+    fig.suptitle(with_noise(f"{SCENARIO_COND}: non-estimable area and tail of cond, one point per map subset "
+                            f"(Spearman's ρ = {rho:.2f})"))
     fig.savefig(FIG / "plot0_cond_area.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -431,7 +446,7 @@ def main():
     ax.set_xlabel("r = CV_L / CV_T")
     y_axis(ax, "cond", log=True)
     boxes_note(fig)
-    fig.suptitle("uniform fields differing only in r: distribution of cond by r, all map subsets")
+    fig.suptitle(with_noise("uniform fields differing only in r: distribution of cond by r, all map subsets"))
     fig.savefig(FIG / "plot0_ratio_cond.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -485,8 +500,9 @@ def main():
     y_axis(ax, "cond", log=True)
     fig.legend(*ax.get_legend_handles_labels(), loc="outside right center", frameon=False)
     boxes_note(fig)
-    fig.suptitle(f"uniform fields differing only in r, all map subsets: cond by k and by r\n"
-                 f"Spearman's ρ(cond, k) = {rho_k:.2f}, ρ(cond, r) = {rho_r:.2f} (faces with cond, unweighted)")
+    fig.suptitle(with_noise(f"uniform fields differing only in r, all map subsets: cond by k and by r\n"
+                            f"Spearman's ρ(cond, k) = {rho_k:.2f}, ρ(cond, r) = {rho_r:.2f} "
+                            f"(faces with cond, unweighted)"))
     fig.savefig(FIG / "plot3_cond_k_ratio.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
@@ -518,7 +534,8 @@ def main():
         ax.scatter(mx, my, s=170, marker="+", linewidths=2, color="#444", label="centroid", zorder=5)
         for setter, v in ((ax.set_xticks, x), (ax.set_yticks, y)):
             vals = [0, v.min(), v.mean(), v.max()]
-            setter(vals, ["0"] + [f"{t:#.3g}".rstrip(".") for t in vals[1:]])   # 19.0, not 19
+            setter(vals, ["0"] + [f"{t:.0f}" if t >= 100 else f"{t:#.3g}".rstrip(".")   # 19.0, not 19;
+                                  for t in vals[1:]])                              # 1172, not 1.17e+03
         ax.grid(False)
         ax.set_aspect("equal")
         ax.set_xlabel(f"{METHODS['roney']}:\n{ylabel}")                 # two lines: the labels are long
@@ -529,4 +546,16 @@ def main():
 
 
 if __name__ == "__main__":
+    # NOISE, optional: the scenarios SCENARIO_noiseNOISE in place of the clean ones, with the same roles
+    if len(sys.argv) > 1:
+        noise = sys.argv[1]
+        suffix = f"_noise{noise}"
+        FIG = OUT / f"figures_noise{noise}"
+        MAIN_SCENARIOS = [sc + suffix for sc in MAIN_SCENARIOS]
+        PLOT1_SCENARIOS = [sc + suffix for sc in PLOT1_SCENARIOS]
+        SWEEP = [(sc + suffix, r) for sc, r in SWEEP]
+        SCENARIOS = [sc + suffix for sc in SCENARIOS]
+        SCENARIO_LABELS = {sc + suffix: label for sc, label in SCENARIO_LABELS.items()}
+        SCENARIO_COND = SCENARIO_COND + suffix
+        NOISE_TITLE = f"LAT noise σ = {noise} ms"
     main()

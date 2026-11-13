@@ -13,8 +13,12 @@ which writes CASEDIR/error_{angle,mean_cv,ratio}.ply. The cases:
     per-face and Roney on the triplet of SCENARIO_TRIPLET with the largest
     paired area: faces estimable by both methods, area-weighted
 
+With NOISE (e.g. 0.1, NOISES in run_all.sh) the same cases on the scenarios
+SCENARIO_noiseNOISE: SCENARIO in the paths and in CASEDIR has the suffix, e.g.
+output/mesh/per_face_painted_noise0.1_sub_0-1-2-3-4-5/.
+
 Usage, from the repository root:
-    python experiments/error_maps.py | while read -r mesh numbers case_dir; do
+    python experiments/error_maps.py [NOISE] | while read -r mesh numbers case_dir; do
         ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error"
     done
 """
@@ -45,19 +49,22 @@ def line(method, scenario, sub, df):
 
 
 def main():
+    suffix = f"_noise{sys.argv[1]}" if len(sys.argv) > 1 else ""   # NOISE: the scenarios SCENARIO_noiseNOISE
     for scenario in SCENARIOS_ALL_MAPS:
+        scenario += suffix
         sub = subs(scenario, "per_face")[-1]              # all maps
         line("per_face", scenario, sub, load(scenario, "per_face", sub))
 
+    triplet_scenario = SCENARIO_TRIPLET + suffix
     best = None                                           # (paired area, triplet, per-face, Roney)
-    for sub in subs(SCENARIO_TRIPLET, "roney"):
-        per_face, roney = load(SCENARIO_TRIPLET, "per_face", sub), load(SCENARIO_TRIPLET, "roney", sub)
+    for sub in subs(triplet_scenario, "roney"):
+        per_face, roney = load(triplet_scenario, "per_face", sub), load(triplet_scenario, "roney", sub)
         paired = roney["area"][roney["estimable"] & per_face["estimable"]].sum()
         if best is None or paired > best[0]:
             best = (paired, sub, per_face, roney)
     _, sub, per_face, roney = best
-    line("per_face", SCENARIO_TRIPLET, sub, per_face)
-    line("roney", SCENARIO_TRIPLET, sub, roney)
+    line("per_face", triplet_scenario, sub, per_face)
+    line("roney", triplet_scenario, sub, roney)
 
 
 if __name__ == "__main__":

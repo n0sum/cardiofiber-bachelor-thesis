@@ -97,6 +97,16 @@ per-face estimator on all 42 subsets of at least 3 maps and Roney's method on
 the 20 triplets. The two estimators read only the LAT maps; the errors are
 computed afterwards by `analysis/analysis.py`, against the ground truth.
 
+Noise on the LATs: besides the clean scenario S, for each standard deviation N
+of `NOISES` at the top of `run_all.sh` (0.1 and 0.2 ms) there is a scenario
+`S_noiseN`, with the same ground truth and LAT maps where `Simulate` adds to
+every vertex of every map a Gaussian number with mean 0 and standard deviation
+N ms (additive, in ms; independent per vertex and per map; fixed seed in
+`Simulate.cpp`, so the run is reproducible). The grid runs on all 12 scenarios;
+the analysis and the PLYs for MeshLab are run three times: clean
+(`output/figures/`), σ = 0.1 ms (`output/figures_noise0.1/`) and σ = 0.2 ms
+(`output/figures_noise0.2/`).
+
 Scenarios (`simulator/make_truth.py`):
 
 | scenario  | ground truth |
@@ -115,9 +125,10 @@ Outputs:
 
 | folder                     | content |
 |----------------------------|---------|
-| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps) |
+| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps); also `S_noiseN/`, the same `truth.ply` and the noisy LATs |
 | `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` (`error_maps.py`) next to the `estimate.ply` of the error-PLY cases |
-| `output/figures/`          | `per_face.csv`, `comparison.csv`, `cond_k_ratio.csv` and the plots (`analysis.py`) |
+| `output/figures/`          | `per_face.csv`, `comparison.csv`, `cond_k_ratio.csv` and the plots (`analysis.py`), clean LATs |
+| `output/figures_noiseN/`   | the same, on the scenarios `S_noiseN` (`analysis.py N`) |
 | `output/mesh/`             | all the PLYs for MeshLab, one folder per case and one per ground truth (`ErrorMaps`, `FiberView`) |
 
 `output/mesh/`, with the cases chosen today by `error_maps.py` (the triplet is the one
@@ -132,6 +143,10 @@ output/mesh/
   truth_uniform/                      truth_ratio.ply  truth_fibers.ply
   truth_painted/                      truth_ratio.ply  truth_fibers.ply
 ```
+
+and the same cases for each noise level, with the scenario `S_noiseN` in the
+folder name (e.g. `per_face_painted_noise0.1_sub_0-1-2-3-4-5/`,
+`truth_painted_noise0.1/`, a copy of `truth_painted/`).
 
 To compare a `truth_ratio.ply` with an `estimate_ratio.ply` in MeshLab:
 *Colorize by face quality* with Min and Max set by hand, equal for both, and

@@ -4,14 +4,31 @@ The pipeline, for each scenario (the list `SCENARIOS` in `run_all.sh`, today
 `uniform painted r1.6 r2.4`, in this order):
 
 ```
-simulator/make_truth.py SCENARIO   ->  data/reference/SCENARIO/truth.ply   ground truth, format D
-Simulate truth.ply SITES lat.ply   ->  data/reference/SCENARIO/lat.ply     six LAT maps
-experiments/subsets.py SCENARIO    ->  output/SCENARIO/confs/sub_….conf
-Estimate output/SCENARIO/confs/*   ->  output/SCENARIO/per_face/sub_…/estimate.{ply,csv}
-estimator/roney.py roney.conf SC.. ->  output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
-analysis/analysis.py               ->  output/figures/
-experiments/error_maps.py + ErrorMaps + FiberView -> output/mesh/
+simulator/make_truth.py SCENARIO         ->  data/reference/SCENARIO/truth.ply   ground truth, format D
+Simulate truth.ply SITES lat.ply SIGMA   ->  data/reference/SCENARIO/lat.ply     six LAT maps
+experiments/subsets.py SCENARIO          ->  output/SCENARIO/confs/sub_….conf
+Estimate output/SCENARIO/confs/*         ->  output/SCENARIO/per_face/sub_…/estimate.{ply,csv}
+estimator/roney.py roney.conf SC..       ->  output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
+analysis/analysis.py [NOISE]             ->  output/figures/ or output/figures_noiseNOISE/
+experiments/error_maps.py [NOISE] + ErrorMaps + FiberView -> output/mesh/
 ```
+
+## Noise on the LATs
+
+`Simulate` takes a fourth argument SIGMA, in ms. After computing each map it
+adds to every vertex (also those of the stimulus sphere) a number drawn from a
+Gaussian with mean 0 and standard deviation SIGMA: additive noise in ms,
+independent per vertex and per map, from one `std::mt19937` with a fixed seed
+(`NOISE_SEED` in `Simulate.cpp`). With SIGMA = 0 nothing is drawn. Since the
+seed is the same, the noise at σ = 0.2 is exactly twice that at σ = 0.1.
+
+`run_all.sh` simulates each scenario S of `SCENARIOS` clean (SIGMA = 0) and,
+for each N of `NOISES` (`0.1 0.2`), a scenario `S_noiseN`: the folder
+`data/reference/S_noiseN/` with a copy of `truth.ply` of S and the LATs with
+SIGMA = N. Order: the four clean scenarios, then those at 0.1, then those at
+0.2. The grid (subsets, Estimate, Roney) runs on all 12; `analysis.py` and
+`error_maps.py` run three times, without argument (clean), with `0.1` and with
+`0.2`.
 
 The two estimators read only `lat.ply` and write their estimate in format D:
 they never see the ground truth. The errors are computed only in the analysis,
@@ -76,7 +93,8 @@ end_header
 
 Binary PLY written by `Simulate`: per vertex `x y z lat_0 … lat_5` (double;
 mm, ms), faces `vertex_indices` as in `truth.ply`. Map k is paced from the face
-in row k of `simulator/stage1/pacing_sites.csv`.
+in row k of `simulator/stage1/pacing_sites.csv`. In the scenarios `S_noiseN`
+the LATs carry the Gaussian noise described above.
 
 ## Estimator `.conf`
 
@@ -150,7 +168,9 @@ output/
     per_face/sub_…/estimate.csv
     roney/sub_i-j-k/estimate.ply      estimator/roney.py, 20 triplets
     roney/sub_i-j-k/estimate.csv
-  figures/                            analysis/analysis.py, tables and PNGs
+  figures/                            analysis/analysis.py, tables and PNGs, clean LATs
+  figures_noise0.1/                   analysis/analysis.py 0.1, the same on the scenarios S_noise0.1
+  figures_noise0.2/                   analysis/analysis.py 0.2, the same on the scenarios S_noise0.2
   mesh/                               all the PLYs for MeshLab (ErrorMaps, FiberView), below
 ```
 
@@ -167,13 +187,22 @@ output/mesh/
   truth_painted/                      truth_ratio.ply  truth_fibers.ply
 ```
 
+and the same for each noise level, with `S_noiseN` in the names
+(`per_face_painted_noise0.1_sub_0-1-2-3-4-5/`, `truth_painted_noise0.1/`, ...;
+the triplet of `painted` with the largest paired area can change with the noise).
+
 `run_all.sh` deletes `output/` before recomputing it, so no old results end up
 in the figures.
 
 ## Analysis
 
-`python analysis/analysis.py`, without arguments, reads the whole grid and
-writes to `output/figures/`. Lists at its top: `MAIN_SCENARIOS`,
+`python analysis/analysis.py`, without arguments, reads the clean scenarios and
+writes to `output/figures/`. `python analysis/analysis.py NOISE` (e.g. `0.1`)
+does the same on the scenarios `S_noiseNOISE`, with the same roles below and
+the same legend labels, adds "LAT noise σ = NOISE ms" to the title of every
+figure and writes to `output/figures_noiseNOISE/` (there plot 1 is
+`plot1_maps_painted_noiseNOISE_*`). NOISE is read only when `analysis.py` runs
+as a script. Lists at its top: `MAIN_SCENARIOS`,
 `["uniform", "painted"]`; `PLOT1_SCENARIOS`, `["painted"]`, for plot 1; and
 `SWEEP`, the scenarios of the sweep in r with their r, in increasing r (`r1.6`,
 `uniform` as r = 2, `r2.4`), for plots 0d, 2 and 3. The tables and plot 4
@@ -309,7 +338,9 @@ The PLYs are `CASEDIR/error_{angle,mean_cv,ratio}.ply`:
    the largest paired area (faces estimable by both methods, area-weighted,
    areas from `load()`).
 
-The scenarios are constants at the top of `error_maps.py`.
+The scenarios are constants at the top of `error_maps.py`. With an argument
+NOISE, `error_maps.py NOISE` takes the same cases on the scenarios
+`S_noiseNOISE`.
 
 ## Conduction fields for MeshLab
 

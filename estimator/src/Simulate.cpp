@@ -3,16 +3,22 @@
 // Solves the anisotropic eikonal equation on the triangle mesh with the FIM
 // discretization of Fu et al. 2011, in its simple form: no active list, sweeps
 // over all faces until nothing changes. One map per row of SITES.csv.
+// With SIGMA > 0, Gaussian noise is added to the LATs before writing: to every
+// vertex of every map a number drawn from a normal distribution with mean 0 and
+// standard deviation SIGMA (ms), independent per vertex and per map, also on the
+// vertices of the stimulus sphere. One generator with the fixed seed NOISE_SEED,
+// so the same SIGMA gives the same file. With SIGMA = 0 nothing is drawn.
 //
 // Usage, from the repository root:
-//   ./estimator/build/Simulate TRUTH.ply SITES.csv LAT.ply
-//   ./estimator/build/Simulate data/reference/uniform/truth.ply simulator/stage1/pacing_sites.csv data/reference/uniform/lat.ply
+//   ./estimator/build/Simulate TRUTH.ply SITES.csv LAT.ply SIGMA
+//   ./estimator/build/Simulate data/reference/uniform/truth.ply simulator/stage1/pacing_sites.csv data/reference/uniform/lat.ply 0
 //
 // TRUTH.ply: format D (per vertex x y z in mm; per face vertex_indices,
 //            fiber fx fy fz, mu, alpha; CV_L = exp(mu + alpha), CV_T = exp(mu - alpha) in mm/ms).
 //            The faces are used as they are, nothing is flipped here.
 // SITES.csv: header cell_id, one face index per row; row k is map k.
 // LAT.ply:   per vertex x y z (mm) and lat_0 ... lat_K (ms), faces vertex_indices.
+// SIGMA:     standard deviation of the noise on the LATs, ms; 0 = no noise.
 
 #include <happly.h>
 #include <glm/glm.hpp>
@@ -21,12 +27,16 @@
 #include <cmath>
 #include <fstream>
 #include <limits>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 // Vertices within this distance (mm) of the barycenter of the pacing face start at LAT 0.
 const double STIMULUS_RADIUS = 3.0;
+
+// Seed of the generator of the noise on the LATs: fixed, so the runs are reproducible.
+const unsigned int NOISE_SEED = 12345;
 
 const double INF = std::numeric_limits<double>::infinity();
 
@@ -80,12 +90,13 @@ double updateFromFace(const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3
 }
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        throw std::runtime_error("usage: Simulate TRUTH.ply SITES.csv LAT.ply");
+    if (argc != 5) {
+        throw std::runtime_error("usage: Simulate TRUTH.ply SITES.csv LAT.ply SIGMA");
     }
     std::string truthFile = argv[1];
     std::string sitesFile = argv[2];
     std::string latFile = argv[3];
+    double sigma = std::stod(argv[4]);
 
     // --- read the conduction field
     happly::PLYData plyIn(truthFile);
@@ -122,6 +133,10 @@ int main(int argc, char** argv) {
 
     std::vector<int> sites = readSites(sitesFile);
     std::vector<std::vector<double>> lats;
+
+    // --- generator of the noise, one for all the maps
+    std::mt19937 generator(NOISE_SEED);
+    std::normal_distribution<double> noise(0.0, 1.0);
 
     for (int k = 0; k < (int)sites.size(); k++) {
         // --- start: LAT 0 within STIMULUS_RADIUS of the barycenter of the pacing face
@@ -161,6 +176,13 @@ int main(int argc, char** argv) {
         if (unreached > 0) {
             throw std::runtime_error("map " + std::to_string(k) + ": " + std::to_string(unreached) +
                                      " vertices not reached");
+        }
+
+        // --- noise: to every vertex a number from a Gaussian with mean 0 and standard deviation sigma
+        if (sigma > 0.0) {
+            for (int i = 0; i < numVertices; i++) {
+                T[i] = T[i] + sigma * noise(generator);
+            }
         }
         lats.push_back(T);
     }
