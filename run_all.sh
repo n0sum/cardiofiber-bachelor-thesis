@@ -13,7 +13,7 @@ cd "$(dirname "$0")"
 SCENARIOS="uniform painted r1.6 r2.4"
 # standard deviations (ms) of the Gaussian noise on the LATs: for each scenario S and each N
 # a scenario S_noiseN, same ground truth, LATs of Simulate with SIGMA = N
-NOISES="0.1 0.2"
+NOISES="0.05 0.1"
 
 # all the scenarios of the grid: first the clean ones, then those of each noise level
 ALL_SCENARIOS="$SCENARIOS"

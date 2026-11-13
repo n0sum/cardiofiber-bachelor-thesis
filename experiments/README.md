@@ -20,15 +20,15 @@ adds to every vertex (also those of the stimulus sphere) a number drawn from a
 Gaussian with mean 0 and standard deviation SIGMA: additive noise in ms,
 independent per vertex and per map, from one `std::mt19937` with a fixed seed
 (`NOISE_SEED` in `Simulate.cpp`). With SIGMA = 0 nothing is drawn. Since the
-seed is the same, the noise at σ = 0.2 is exactly twice that at σ = 0.1.
+seed is the same, the noise at σ = 0.1 is exactly twice that at σ = 0.05.
 
 `run_all.sh` simulates each scenario S of `SCENARIOS` clean (SIGMA = 0) and,
-for each N of `NOISES` (`0.1 0.2`), a scenario `S_noiseN`: the folder
+for each N of `NOISES` (`0.05 0.1`), a scenario `S_noiseN`: the folder
 `data/reference/S_noiseN/` with a copy of `truth.ply` of S and the LATs with
-SIGMA = N. Order: the four clean scenarios, then those at 0.1, then those at
-0.2. The grid (subsets, Estimate, Roney) runs on all 12; `analysis.py` and
-`error_maps.py` run three times, without argument (clean), with `0.1` and with
-`0.2`.
+SIGMA = N. Order: the four clean scenarios, then those at 0.05, then those at
+0.1. The grid (subsets, Estimate, Roney) runs on all 12; `analysis.py` and
+`error_maps.py` run three times, without argument (clean), with `0.05` and with
+`0.1`.
 
 The two estimators read only `lat.ply` and write their estimate in format D:
 they never see the ground truth. The errors are computed only in the analysis,
@@ -169,8 +169,8 @@ output/
     roney/sub_i-j-k/estimate.ply      estimator/roney.py, 20 triplets
     roney/sub_i-j-k/estimate.csv
   figures/                            analysis/analysis.py, tables and PNGs, clean LATs
+  figures_noise0.05/                  analysis/analysis.py 0.05, the same on the scenarios S_noise0.05
   figures_noise0.1/                   analysis/analysis.py 0.1, the same on the scenarios S_noise0.1
-  figures_noise0.2/                   analysis/analysis.py 0.2, the same on the scenarios S_noise0.2
   mesh/                               all the PLYs for MeshLab (ErrorMaps, FiberView), below
 ```
 

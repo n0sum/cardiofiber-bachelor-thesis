@@ -98,14 +98,14 @@ the 20 triplets. The two estimators read only the LAT maps; the errors are
 computed afterwards by `analysis/analysis.py`, against the ground truth.
 
 Noise on the LATs: besides the clean scenario S, for each standard deviation N
-of `NOISES` at the top of `run_all.sh` (0.1 and 0.2 ms) there is a scenario
+of `NOISES` at the top of `run_all.sh` (0.05 and 0.1 ms) there is a scenario
 `S_noiseN`, with the same ground truth and LAT maps where `Simulate` adds to
 every vertex of every map a Gaussian number with mean 0 and standard deviation
 N ms (additive, in ms; independent per vertex and per map; fixed seed in
 `Simulate.cpp`, so the run is reproducible). The grid runs on all 12 scenarios;
 the analysis and the PLYs for MeshLab are run three times: clean
-(`output/figures/`), σ = 0.1 ms (`output/figures_noise0.1/`) and σ = 0.2 ms
-(`output/figures_noise0.2/`).
+(`output/figures/`), σ = 0.05 ms (`output/figures_noise0.05/`) and σ = 0.1 ms
+(`output/figures_noise0.1/`).
 
 Scenarios (`simulator/make_truth.py`):
 
