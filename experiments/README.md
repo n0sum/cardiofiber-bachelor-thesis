@@ -10,8 +10,7 @@ experiments/subsets.py SCENARIO    ->  output/SCENARIO/confs/sub_….conf
 Estimate output/SCENARIO/confs/*   ->  output/SCENARIO/per_face/sub_…/estimate.{ply,csv}
 estimator/roney.py roney.conf SC.. ->  output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
 analysis/analysis.py               ->  output/figures/
-experiments/error_maps.py + ErrorMaps -> output/mesh/
-FiberView, same cases              ->  estimate_{ratio,fibers}.ply, truth_{ratio,fibers}.ply
+experiments/error_maps.py + ErrorMaps + FiberView -> output/mesh/
 ```
 
 The two estimators read only `lat.ply` and write their estimate in format D:
@@ -152,12 +151,21 @@ output/
     roney/sub_i-j-k/estimate.ply      estimator/roney.py, 20 triplets
     roney/sub_i-j-k/estimate.csv
   figures/                            analysis/analysis.py, tables and PNGs
-  mesh/                               the error PLYs, ErrorMaps from error_maps.py
+  mesh/                               all the PLYs for MeshLab (ErrorMaps, FiberView), below
 ```
 
-In the folders of the error-map cases (`error_maps.py`) there are also
-`error_maps.txt` and `estimate_{ratio,fibers}.ply` (FiberView, see
-"Conduction fields for MeshLab").
+In the folders of the error-map cases (`error_maps.py`) there is also
+`error_maps.txt`. `output/mesh/`, with the cases chosen today:
+
+```
+output/mesh/
+  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_cv_l.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_painted_sub_0-1-2-3-4-5/   (the same five)
+  per_face_painted_sub_1-4-5/         (the same five)
+  roney_painted_sub_1-4-5/            (the same five)
+  truth_uniform/                      truth_ratio.ply  truth_fibers.ply
+  truth_painted/                      truth_ratio.ply  truth_fibers.ply
+```
 
 `run_all.sh` deletes `output/` before recomputing it, so no old results end up
 in the figures.
@@ -276,9 +284,10 @@ These PLYs are only for visualization: they must never be used as input to
 any computation (missing faces, float values).
 
 `error_maps.py` chooses the cases, writes for each one `error_maps.txt` next to
-its `estimate.ply` and prints a line `MESH NUMBERS PREFIX`, which `run_all.sh`
-passes to `ErrorMaps`; it creates `output/mesh/` if needed. The PLYs are
-`output/mesh/METHOD_SCENARIO_SUB_{angle,cv_l,ratio}.ply`:
+its `estimate.ply`, creates the folder of the case
+`output/mesh/METHOD_SCENARIO_SUB/` (CASEDIR) and prints a line
+`MESH NUMBERS CASEDIR`; `run_all.sh` calls `ErrorMaps MESH NUMBERS CASEDIR/error`.
+The PLYs are `CASEDIR/error_{angle,cv_l,ratio}.ply`:
 
 1. per-face, all maps, on each scenario of `SCENARIOS_ALL_MAPS` (`uniform`
    and `painted`);
@@ -296,11 +305,10 @@ truth or estimate) into `PREFIX_ratio.ply` (quality per face = r) and
 CV_L); faces with NaN are left out.
 
 `run_all.sh` calls it for the cases of the error maps (`error_maps.py`): for
-each one on the estimate, writing `estimate_{ratio,fibers}.ply` next to
-`output/SCENARIO/METHOD/SUB/estimate.ply`, and on the ground truth of its
-scenario, writing `truth_{ratio,fibers}.ply` next to
-`data/reference/SCENARIO/truth.ply` (today `uniform` and `painted`; for
-`painted` the same files are written once per case).
+each one on the estimate, writing `CASEDIR/estimate_{ratio,fibers}.ply`,
+and on the ground truth of its scenario, writing
+`output/mesh/truth_SCENARIO/truth_{ratio,fibers}.ply` (today `uniform` and
+`painted`; for `painted` the same files are written once per case).
 
 To compare ground truth and estimate in MeshLab: *Colorize by face quality*
 on the two `_ratio.ply`, with Min and Max set by hand and equal for both, and

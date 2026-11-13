@@ -115,10 +115,23 @@ Outputs:
 
 | folder                     | content |
 |----------------------------|---------|
-| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps); for the scenarios of the error-PLY cases `truth_{ratio,fibers}.ply` (FiberView) |
-| `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` (`error_maps.py`) and `estimate_{ratio,fibers}.ply` (FiberView) next to the `estimate.ply` of the error-PLY cases |
+| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps) |
+| `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` (`error_maps.py`) next to the `estimate.ply` of the error-PLY cases |
 | `output/figures/`          | `per_face.csv`, `comparison.csv` and the plots (`analysis.py`) |
-| `output/mesh/`             | error PLYs, one per error and case, for MeshLab (`ErrorMaps`) |
+| `output/mesh/`             | all the PLYs for MeshLab, one folder per case and one per ground truth (`ErrorMaps`, `FiberView`) |
+
+`output/mesh/`, with the cases chosen today by `error_maps.py` (the triplet is the one
+of `painted` with the largest paired area):
+
+```
+output/mesh/
+  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_cv_l.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_painted_sub_0-1-2-3-4-5/   (the same five)
+  per_face_painted_sub_1-4-5/         (the same five)
+  roney_painted_sub_1-4-5/            (the same five)
+  truth_uniform/                      truth_ratio.ply  truth_fibers.ply
+  truth_painted/                      truth_ratio.ply  truth_fibers.ply
+```
 
 To compare a `truth_ratio.ply` with an `estimate_ratio.ply` in MeshLab:
 *Colorize by face quality* with Min and Max set by hand, equal for both, and

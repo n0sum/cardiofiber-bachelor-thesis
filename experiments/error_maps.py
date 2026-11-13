@@ -4,17 +4,18 @@ Error maps in PLY for MeshLab, from the runs of the grid. The errors come from
 load() of analysis/analysis.py, against the ground truth.
 For each case writes next to its estimate.ply the file error_maps.txt, only
 numbers: one row per face, in face_id order, "estimable angle cv_l ratio",
-0 0 0 0 on the non-estimable faces. Then prints a line "MESH NUMBERS PREFIX",
-to be passed to ErrorMaps, which writes PREFIX_{angle,cv_l,ratio}.ply.
-MESH is data/reference/SCENARIO/lat.ply, NUMBERS the error_maps.txt, PREFIX
-output/mesh/METHOD_SCENARIO_SUB. The cases:
+0 0 0 0 on the non-estimable faces. Then creates the folder of the case,
+CASEDIR = output/mesh/METHOD_SCENARIO_SUB, and prints a line
+"MESH NUMBERS CASEDIR": MESH is data/reference/SCENARIO/lat.ply, NUMBERS the
+error_maps.txt. run_all.sh passes them to ErrorMaps with PREFIX CASEDIR/error,
+which writes CASEDIR/error_{angle,cv_l,ratio}.ply. The cases:
     per-face, all maps, on each scenario of SCENARIOS_ALL_MAPS
     per-face and Roney on the triplet of SCENARIO_TRIPLET with the largest
     paired area: faces estimable by both methods, area-weighted
 
 Usage, from the repository root:
-    python experiments/error_maps.py | while read -r mesh numbers prefix; do
-        ./estimator/build/ErrorMaps "$mesh" "$numbers" "$prefix"
+    python experiments/error_maps.py | while read -r mesh numbers case_dir; do
+        ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error"
     done
 """
 
@@ -30,7 +31,7 @@ SCENARIO_TRIPLET = "painted"
 
 
 def line(method, scenario, sub, df):
-    """Writes error_maps.txt of the case and prints its line. Numbers with repr, which reads back
+    """Writes error_maps.txt of the case, creates its folder in output/mesh/ and prints its line. Numbers with repr, which reads back
     exactly as a double; no "nan", which >> in C++ does not read."""
     rows = []
     for e, a, l, r in zip(df["estimable"].tolist(), df["angle"].tolist(), df["cv_l"].tolist(),
@@ -38,12 +39,12 @@ def line(method, scenario, sub, df):
         rows.append(f"1 {a!r} {l!r} {r!r}" if e else "0 0 0 0")
     case = f"output/{scenario}/{method}/{sub}"
     (ROOT / case / "error_maps.txt").write_text("\n".join(rows) + "\n")
-    print(f"data/reference/{scenario}/lat.ply {case}/error_maps.txt output/mesh/{method}_{scenario}_{sub}")
+    case_dir = f"output/mesh/{method}_{scenario}_{sub}"
+    (ROOT / case_dir).mkdir(parents=True, exist_ok=True)
+    print(f"data/reference/{scenario}/lat.ply {case}/error_maps.txt {case_dir}")
 
 
 def main():
-    (ROOT / "output" / "mesh").mkdir(parents=True, exist_ok=True)
-
     for scenario in SCENARIOS_ALL_MAPS:
         sub = subs(scenario, "per_face")[-1]              # all maps
         line("per_face", scenario, sub, load(scenario, "per_face", sub))

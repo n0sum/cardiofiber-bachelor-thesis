@@ -37,14 +37,15 @@ python estimator/roney.py experiments/roney.conf $SCENARIOS   # -> output/SCENAR
 # errors against data/reference/SCENARIO/truth.ply, statistics and figures
 python analysis/analysis.py                       # -> output/figures/
 
-# error maps in PLY: the cases are chosen in error_maps.py; three PLYs per case, one per error.
-# error_maps.py writes the errors of each case next to its estimate.ply, in error_maps.txt
-# For each case FiberView also writes the estimate and the ground truth of its scenario as PLYs
-# for MeshLab, next to their D file; for painted the ground truth is rewritten once per case.
-python experiments/error_maps.py | while read -r mesh numbers prefix; do
-    ./estimator/build/ErrorMaps "$mesh" "$numbers" "$prefix"   # -> output/mesh/*_{angle,cv_l,ratio}.ply
-    case_dir=$(dirname "$numbers")
-    truth_dir=$(dirname "$mesh")
-    ./estimator/build/FiberView "$case_dir/estimate.ply" "$case_dir/estimate"  # -> estimate_{ratio,fibers}.ply
-    ./estimator/build/FiberView "$truth_dir/truth.ply" "$truth_dir/truth"      # -> truth_{ratio,fibers}.ply
+# PLYs for MeshLab, all in output/mesh/: the cases are chosen in error_maps.py, which writes
+# the errors of each case next to its estimate.ply, in error_maps.txt, creates the folder
+# output/mesh/METHOD_SCENARIO_SUB/ and prints "MESH NUMBERS CASEDIR". Per case: the three error
+# PLYs and FiberView on the estimate in CASEDIR/, FiberView on the ground truth of its scenario
+# in output/mesh/truth_SCENARIO/ (for painted rewritten once per case, same files).
+python experiments/error_maps.py | while read -r mesh numbers case_dir; do
+    ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error"   # -> error_{angle,cv_l,ratio}.ply
+    ./estimator/build/FiberView "$(dirname "$numbers")/estimate.ply" "$case_dir/estimate"  # -> estimate_{ratio,fibers}.ply
+    scenario=$(basename "$(dirname "$mesh")")
+    mkdir -p "output/mesh/truth_$scenario"
+    ./estimator/build/FiberView "$(dirname "$mesh")/truth.ply" "output/mesh/truth_$scenario/truth"  # -> truth_{ratio,fibers}.ply
 done
