@@ -141,7 +141,7 @@ The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the
 comparison with Roney on the map triplets. Errors are area-weighted over the
 estimable faces: the angle, in degrees, between the estimated and the true
-fiber; for the mean speed e^μ = √(CV_L·CV_T) and for the ratio r = CV_L / CV_T
+fiber; for the mean speed √(CV_L·CV_T) and for the ratio r = CV_L / CV_T
 the difference from the true value, as a percentage of the true value. Figures and columns are
 described in `experiments/README.md`.
 

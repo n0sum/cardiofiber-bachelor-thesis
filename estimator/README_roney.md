@@ -9,7 +9,7 @@ This file lists where `roney.py` follows the paper and where it departs from
 it, why, and what each departure does to the comparison with the per-face
 estimator. Short version:
 
-- the **errors** (fiber angle, mean speed e^μ, anisotropy ratio) are compared only on
+- the **errors** (fiber angle, mean speed √(CV_L·CV_T), anisotropy ratio) are compared only on
   faces estimated by both methods, and on those faces `roney.py` does what the
   paper describes;
 - the **non-estimable area** of Roney's method is partly caused by our choices

@@ -189,7 +189,7 @@ scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
 | `estimable` | μ of the estimate finite |
 | `cond` / `k_used` | from `estimate.csv` |
 | `angle`     | fiber angle error, `acos(min(1, |f̂·f|))`, degrees |
-| `mean_cv`   | `100 (e^μ_est − e^μ_true) / e^μ_true`, %, signed; e^μ = √(CV_L·CV_T) is the mean speed |
+| `mean_cv`   | `100 (v_est − v_true) / v_true`, %, signed; v = √(CV_L·CV_T) is the mean speed, obtained from format D as exp(μ) |
 | `ratio`     | `100 (r_est − r_true) / r_true`, %, signed, r = e^(2α) |
 
 The errors are NaN on the non-estimable faces. Statistics are area-weighted:
@@ -263,7 +263,7 @@ written by happly, which adds a `comment` line), one per error:
 | file                    | per-face `quality`                           |
 |-------------------------|----------------------------------------------|
 | `PREFIX_angle.ply`      | fiber angle error, degrees                   |
-| `PREFIX_mean_cv.ply`    | relative error on the mean speed e^μ, %, signed |
+| `PREFIX_mean_cv.ply`    | relative error on the mean speed √(CV_L·CV_T), %, signed |
 | `PREFIX_ratio.ply`      | relative error on r = CV_L / CV_T, %, signed |
 
 Header of each file:

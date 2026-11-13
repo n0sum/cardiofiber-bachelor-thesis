@@ -13,11 +13,12 @@ Writes everything to output/figures/.
 
 load() is the only place where the errors are computed, the same for the two
 methods: estimate.ply against the ground truth data/reference/SCENARIO/truth.ply,
-both in format D (mean speed e^mu = sqrt(CV_L CV_T), r = CV_L / CV_T = exp(2 alpha)).
+both in format D (r = CV_L / CV_T = exp(2 alpha)).
 Errors per estimable face (mu of the estimate finite); AREA-WEIGHTED statistics:
   angle    acos(min(1, |f_est . f_true|)), degrees
-  mean_cv  100 (e^mu_est - e^mu_true) / e^mu_true, %
+  mean_cv  100 (v_est - v_true) / v_true, %, v = sqrt(CV_L CV_T) (mean speed)
   ratio    100 (r_est - r_true) / r_true, %
+The mean speed v is obtained from format D as exp(mu).
 q50, q90 and q99 (the values below which 50, 90, 99% of the area lies) are
 computed on the absolute value; for mean_cv and ratio there is also the signed
 median. cond = sigma_max / sigma_min of the system of a face (per-face
@@ -119,9 +120,9 @@ ERRORS = ("angle", "mean_cv", "ratio")
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
           "angle": "fiber angle error [deg]",
-          "mean_cv": "|relative error of mean speed e^μ| [%]",
+          "mean_cv": "|relative error of mean speed √(CV_L·CV_T)| [%]",
           "ratio": "|relative error of CV_L / CV_T| [%]"}
-NAMES = {"angle": "fiber angle", "mean_cv": "mean speed e^μ", "ratio": "CV_L / CV_T"}   # panel titles of plot 0a
+NAMES = {"angle": "fiber angle", "mean_cv": "mean speed √(CV_L·CV_T)", "ratio": "CV_L / CV_T"}   # panel titles of plot 0a
 METHODS = {"per_face": "per-face", "roney": "Roney"}
 BLUE = "#2a78d6"
 QSTYLE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
@@ -142,7 +143,7 @@ def wquantile(values, weights, q):
 
 
 def field(face):
-    """Fiber, mean speed e^mu = sqrt(CV_L CV_T) and r = CV_L / CV_T per face, from the face element of
+    """Fiber, mean speed v = sqrt(CV_L CV_T) = exp(mu) and r = CV_L / CV_T per face, from the face element of
     a format D PLY."""
     f = np.stack([face[k] for k in ("fx", "fy", "fz")], axis=1)
     return f, np.exp(face["mu"]), np.exp(2 * face["alpha"])
@@ -520,8 +521,8 @@ def main():
             setter(vals, ["0"] + [f"{t:#.3g}".rstrip(".") for t in vals[1:]])   # 19.0, not 19
         ax.grid(False)
         ax.set_aspect("equal")
-        ax.set_xlabel(f"{METHODS['roney']}: {ylabel}")
-        ax.set_ylabel(f"{METHODS['per_face']}: {ylabel}")
+        ax.set_xlabel(f"{METHODS['roney']}:\n{ylabel}")                 # two lines: the labels are long
+        ax.set_ylabel(f"{METHODS['per_face']}:\n{ylabel}")
 
     figure("plot4_roney", "map triplets: per-face vs Roney, paired faces (area: each method alone)\n"
            "on the axes: min, centroid (mean of all the points) and max", draw4, after=separate_tick_labels)
