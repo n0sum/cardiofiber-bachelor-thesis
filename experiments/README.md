@@ -159,7 +159,7 @@ In the folders of the error-map cases (`error_maps.py`) there is also
 
 ```
 output/mesh/
-  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_cv_l.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_mean_cv.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
   per_face_painted_sub_0-1-2-3-4-5/   (the same five)
   per_face_painted_sub_1-4-5/         (the same five)
   roney_painted_sub_1-4-5/            (the same five)
@@ -173,11 +173,12 @@ in the figures.
 ## Analysis
 
 `python analysis/analysis.py`, without arguments, reads the whole grid and
-writes to `output/figures/`. Two lists at its top: `MAIN_SCENARIOS`,
-`["uniform", "painted"]`, for plot 1, and `SWEEP`, the scenarios of the sweep
-in r with their r, in increasing r (`r1.6`, `uniform` as r = 2, `r2.4`), for
-plot 5. The tables and plot 4 contain all the scenarios, in the order of
-`run_all.sh` (`SCENARIOS`: `MAIN_SCENARIOS`, then the rest of `SWEEP`).
+writes to `output/figures/`. Lists at its top: `MAIN_SCENARIOS`,
+`["uniform", "painted"]`; `PLOT1_SCENARIOS`, `["painted"]`, for plot 1; and
+`SWEEP`, the scenarios of the sweep in r with their r, in increasing r (`r1.6`,
+`uniform` as r = 2, `r2.4`), for plots 0d, 2 and 3. The tables and plot 4
+contain all the scenarios, in the order of `run_all.sh` (`SCENARIOS`:
+`MAIN_SCENARIOS`, then the rest of `SWEEP`).
 
 `load(scenario, method, sub)` reads `data/reference/SCENARIO/truth.ply` (once per
 scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
@@ -188,13 +189,13 @@ scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
 | `estimable` | μ of the estimate finite |
 | `cond` / `k_used` | from `estimate.csv` |
 | `angle`     | fiber angle error, `acos(min(1, |f̂·f|))`, degrees |
-| `cv_l`      | `100 (CV_L_est − CV_L_true) / CV_L_true`, %, signed |
+| `mean_cv`   | `100 (e^μ_est − e^μ_true) / e^μ_true`, %, signed; e^μ = √(CV_L·CV_T) is the mean speed |
 | `ratio`     | `100 (r_est − r_true) / r_true`, %, signed, r = e^(2α) |
 
 The errors are NaN on the non-estimable faces. Statistics are area-weighted:
 q50, q90 and q99 are the values below which 50, 90 and 99% of the area lies,
-of the absolute value of the error; the signed medians of cv_l and ratio are
-only in the tables.
+of the absolute value of the error; the signed medians of mean_cv and ratio
+(`mean_cv_median`, `ratio_median`) are only in the tables.
 
 - `per_face.csv`: one row per scenario and subset of the per-face
   estimator: non-estimable area, errors on the estimable faces of the
@@ -202,28 +203,41 @@ only in the tables.
 - `comparison.csv`: one row per scenario, triplet and method (`per_face`,
   `roney`), with the non-estimable area of the method alone, the paired area
   (faces estimable by both methods with that triplet) and the errors on the
-  paired faces. The rows with `sub` = `pooled` gather the paired faces
-  of the 20 triplets of the scenario; their areas are means over the triplets.
+  paired faces. For the Roney rows the non-estimable area is also split in
+  two: `fit_area_%` (`k_used < 3`, lost to the planar fit) and `conic_area_%`
+  (`k_used = 3` and estimate NaN: the conic is not an ellipse or the system is
+  nearly singular); both empty on the per-face rows. The rows with `sub` =
+  `pooled` gather the paired faces of the 20 triplets of the scenario; their
+  areas are means over the triplets.
+- `cond_k_ratio.csv`: one row per (k, r) on the scenarios of `SWEEP`, all the
+  subsets with that k: `cond_q50`, `cond_q90` (area-weighted, faces with
+  computed cond) and `faces`, the number of such faces (pooled over the
+  subsets). The numbers of plot 3.
 
-Plot 0 is three PNGs; plots 1 and 4 are four PNGs each: `_area` (non-estimable
-area, one panel) and `_angle`, `_cv_l`, `_ratio`. In plot 1 these have a single
+Plot 0 is four PNGs (0a–0d) and plot 3 one; plots 1, 2 and 4 are four PNGs
+each: `_area` (non-estimable area, one panel) and `_angle`, `_mean_cv`,
+`_ratio`. In plots 1 and 2 these have a single
 panel with q50, q90 and q99 together (circle, square, triangle, Okabe-Ito
 colors), points only without lines, with the vertical axis on a log scale and
 labels in plain numbers (1, 2, 5, 10...); in plot 4 three panels q50, q90 and
 q99. The other vertical axes, including the `_area` files, are linear and
 start at 0 (in plot 4 also the horizontal one, with the same limits).
 
-Plot 0 is only on `uniform` (`SCENARIO_COND` in `analysis.py`): cond depends on
-r, so it is compared only at equal r.
+Plots 0a, 0b and 0c are only on `uniform` (`SCENARIO_COND` in `analysis.py`):
+cond depends on r, so there it is compared only at equal r. Plots 0d, 2 and 3
+are on the scenarios of `SWEEP`, with all the 42 subsets of each. The boxes
+(0b, 0d, 3) go from q25 to q75, line at q50, whiskers q10–q90, area-weighted.
 
 | file                     | content                                                |
 |--------------------------|--------------------------------------------------------|
-| `plot0_cond_errors.png`  | faces with computed cond of the 42 subsets together, in 10 equal-area cond bins, at the median cond of the bin: three panels angle, cv_l, ratio with one box per bin on the estimable faces (q25–q75, line at q50, whiskers q10–q90, area-weighted; log on both axes) and in the title Spearman's ρ between cond and error; in a 2 × 2 square with the area panel: the % of area of the bin where the estimate is not an ellipse, i.e. the faces with cond but estimate NaN (smaller eigenvalue ≤ 1e-8 times the larger one); the faces discarded because the smallest singular value is below threshold have no cond and do not appear |
-| `plot0_maps_cond.png`    | one box of cond (log) per k, on the faces with computed cond of all the subsets with k maps |
-| `plot0_cond_area.png`    | one point per subset from `per_face.csv`: cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and marker by k; in the title Spearman's ρ over the 42 points |
-| `plot1_maps_SCENARIO_*`  | one set per scenario of `MAIN_SCENARIOS`, as a function of k: one point per subset and quantile, staggered within each k |
+| `plot0_cond_errors.png` (0a) | faces with computed cond of the 42 subsets together, in 10 equal-area cond bins, at the median cond of the bin: three panels angle, mean_cv, ratio with, per bin, q50, q90 and q99 of the absolute error on its estimable faces (area-weighted), points joined by lines, log on both axes, in the title Spearman's ρ between cond and |error| (unweighted): cond bounds how large the error can be (q90, q99), not how large it is; in a 2 × 2 square with the area panel: the % of area of the bin where the estimate is not an ellipse, i.e. the faces with cond but estimate NaN (smaller eigenvalue ≤ 1e-8 times the larger one); the faces discarded because the smallest singular value is below threshold have no cond and do not appear |
+| `plot0_maps_cond.png` (0b) | one box of cond (log) per k, on the faces with computed cond of all the subsets with k maps |
+| `plot0_cond_area.png` (0c) | one point per subset from `per_face.csv`: cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and marker by k; in the title Spearman's ρ over the 42 points |
+| `plot0_ratio_cond.png` (0d) | one box of cond (log) per scenario of `SWEEP`, r on the horizontal axis (1.6, 2, 2.4), on the faces with computed cond of all its 42 subsets: the same mix of k in each box, so the boxes compare |
+| `plot1_maps_painted_*`  | `painted` (`PLOT1_SCENARIOS`), as a function of k: one point per subset and quantile, staggered within each k |
+| `plot2_ratio_*`         | per-face only, the scenarios of `SWEEP`, r on the horizontal axis: one point per subset and quantile, the 42 subsets of each r staggered within it, ordered by k |
+| `plot3_cond_k_ratio.png` | does cond depend more on k or on r? Boxes of cond (log) grouped by k = 3…6, in each group one box per scenario of `SWEEP` (one color per r, those of plot 4, legend), on the faces with computed cond of the subsets with that k; in the title Spearman's ρ(cond, k) and ρ(cond, r) over the faces with computed cond of the three scenarios, unweighted. Numbers in `cond_k_ratio.csv` |
 | `plot4_roney_*`          | one point per triplet and scenario of `SCENARIOS`, 80 points (one Okabe-Ito color and one marker per scenario, in the order of `run_all.sh`; in the legend `uniform (r = 2)`, `painted`, `r = 1.6`, `r = 2.4`; limits and centroid over all the points): Roney on the horizontal axis, per-face on the vertical axis, with y = x; on the axes only 0, minimum, centroid (mean of all the points, cross) and maximum, with dotted projections and without grid |
-| `plot5_ratio.png`        | the sweep in r: one point per scenario of `SWEEP` (uniform fields differing only in r: 1.6, 2 (`uniform`), 2.4), r on the horizontal axis with ticks at those values. Three series, one Okabe-Ito color each: per-face with the six maps, on its estimable faces; per-face and Roney on the 20 triplets pooled (each face once per triplet, as the `pooled` rows of `comparison.csv`), on the faces paired with that triplet. 2 × 2 panels as plot 0a: angle, cv_l, ratio with q50 (solid) and q90 (dashed) of the absolute value, area-weighted, log vertical scale; non-estimable area, % of the total area, each series alone (on the triplets the mean over the 20), linear from 0, with for Roney a dashed line for the part where the conic is not an ellipse or the system is nearly singular (`k_used = 3`, estimate NaN), without the part lost to the planar fit (`k_used < 3`). Numbers in `ratio_sweep.csv`, one row per scenario and series: r, non-estimable area (for Roney also its two parts), q50 and q90 of the three errors, and for the two per-face series `cond_q50`, `cond_q90` (faces with computed cond; on the triplets pooled): cond depends on r, and here it is part of the effect |
 
 Median, minimum and maximum over subsets count each subset once;
 the area weighting applies within each subset.
@@ -239,7 +253,7 @@ For MeshLab, which colors the faces with a single field, `quality`:
 with `MESH.ply` a PLY of the mesh (`error_maps.py` passes
 `data/reference/SCENARIO/lat.ply`; only vertices and faces are read) and
 `NUMBERS.txt` an `error_maps.txt` written by `error_maps.py`: only numbers, one
-row per face in `face_id` order, `estimable angle cv_l ratio`, with `0 0 0 0`
+row per face in `face_id` order, `estimable angle mean_cv ratio`, with `0 0 0 0`
 on the non-estimable faces (no `nan`, which `>>` in C++ does not read). The
 numbers come from `load()` of `analysis/analysis.py` and are written with
 `repr`, which reads back exactly as a double. `ErrorMaps` writes with
@@ -249,7 +263,7 @@ written by happly, which adds a `comment` line), one per error:
 | file                    | per-face `quality`                           |
 |-------------------------|----------------------------------------------|
 | `PREFIX_angle.ply`      | fiber angle error, degrees                   |
-| `PREFIX_cv_l.ply`       | relative error on CV_L, %, signed            |
+| `PREFIX_mean_cv.ply`    | relative error on the mean speed e^μ, %, signed |
 | `PREFIX_ratio.ply`      | relative error on r = CV_L / CV_T, %, signed |
 
 Header of each file:
@@ -287,7 +301,7 @@ any computation (missing faces, float values).
 its `estimate.ply`, creates the folder of the case
 `output/mesh/METHOD_SCENARIO_SUB/` (CASEDIR) and prints a line
 `MESH NUMBERS CASEDIR`; `run_all.sh` calls `ErrorMaps MESH NUMBERS CASEDIR/error`.
-The PLYs are `CASEDIR/error_{angle,cv_l,ratio}.ply`:
+The PLYs are `CASEDIR/error_{angle,mean_cv,ratio}.ply`:
 
 1. per-face, all maps, on each scenario of `SCENARIOS_ALL_MAPS` (`uniform`
    and `painted`);

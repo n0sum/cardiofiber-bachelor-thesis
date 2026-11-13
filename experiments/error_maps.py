@@ -3,12 +3,12 @@
 Error maps in PLY for MeshLab, from the runs of the grid. The errors come from
 load() of analysis/analysis.py, against the ground truth.
 For each case writes next to its estimate.ply the file error_maps.txt, only
-numbers: one row per face, in face_id order, "estimable angle cv_l ratio",
+numbers: one row per face, in face_id order, "estimable angle mean_cv ratio",
 0 0 0 0 on the non-estimable faces. Then creates the folder of the case,
 CASEDIR = output/mesh/METHOD_SCENARIO_SUB, and prints a line
 "MESH NUMBERS CASEDIR": MESH is data/reference/SCENARIO/lat.ply, NUMBERS the
 error_maps.txt. run_all.sh passes them to ErrorMaps with PREFIX CASEDIR/error,
-which writes CASEDIR/error_{angle,cv_l,ratio}.ply. The cases:
+which writes CASEDIR/error_{angle,mean_cv,ratio}.ply. The cases:
     per-face, all maps, on each scenario of SCENARIOS_ALL_MAPS
     per-face and Roney on the triplet of SCENARIO_TRIPLET with the largest
     paired area: faces estimable by both methods, area-weighted
@@ -34,9 +34,9 @@ def line(method, scenario, sub, df):
     """Writes error_maps.txt of the case, creates its folder in output/mesh/ and prints its line. Numbers with repr, which reads back
     exactly as a double; no "nan", which >> in C++ does not read."""
     rows = []
-    for e, a, l, r in zip(df["estimable"].tolist(), df["angle"].tolist(), df["cv_l"].tolist(),
+    for e, a, m, r in zip(df["estimable"].tolist(), df["angle"].tolist(), df["mean_cv"].tolist(),
                           df["ratio"].tolist()):
-        rows.append(f"1 {a!r} {l!r} {r!r}" if e else "0 0 0 0")
+        rows.append(f"1 {a!r} {m!r} {r!r}" if e else "0 0 0 0")
     case = f"output/{scenario}/{method}/{sub}"
     (ROOT / case / "error_maps.txt").write_text("\n".join(rows) + "\n")
     case_dir = f"output/mesh/{method}_{scenario}_{sub}"

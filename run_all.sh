@@ -43,7 +43,7 @@ python analysis/analysis.py                       # -> output/figures/
 # PLYs and FiberView on the estimate in CASEDIR/, FiberView on the ground truth of its scenario
 # in output/mesh/truth_SCENARIO/ (for painted rewritten once per case, same files).
 python experiments/error_maps.py | while read -r mesh numbers case_dir; do
-    ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error"   # -> error_{angle,cv_l,ratio}.ply
+    ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error"   # -> error_{angle,mean_cv,ratio}.ply
     ./estimator/build/FiberView "$(dirname "$numbers")/estimate.ply" "$case_dir/estimate"  # -> estimate_{ratio,fibers}.ply
     scenario=$(basename "$(dirname "$mesh")")
     mkdir -p "output/mesh/truth_$scenario"

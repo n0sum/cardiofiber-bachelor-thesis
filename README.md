@@ -117,7 +117,7 @@ Outputs:
 |----------------------------|---------|
 | `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps) |
 | `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` (`error_maps.py`) next to the `estimate.ply` of the error-PLY cases |
-| `output/figures/`          | `per_face.csv`, `comparison.csv` and the plots (`analysis.py`) |
+| `output/figures/`          | `per_face.csv`, `comparison.csv`, `cond_k_ratio.csv` and the plots (`analysis.py`) |
 | `output/mesh/`             | all the PLYs for MeshLab, one folder per case and one per ground truth (`ErrorMaps`, `FiberView`) |
 
 `output/mesh/`, with the cases chosen today by `error_maps.py` (the triplet is the one
@@ -125,7 +125,7 @@ of `painted` with the largest paired area):
 
 ```
 output/mesh/
-  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_cv_l.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_mean_cv.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
   per_face_painted_sub_0-1-2-3-4-5/   (the same five)
   per_face_painted_sub_1-4-5/         (the same five)
   roney_painted_sub_1-4-5/            (the same five)
@@ -141,8 +141,8 @@ The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the
 comparison with Roney on the map triplets. Errors are area-weighted over the
 estimable faces: the angle, in degrees, between the estimated and the true
-fiber; for CV_L and for the ratio r = CV_L / CV_T the difference from the
-true value, as a percentage of the true value. Figures and columns are
+fiber; for the mean speed e^μ = √(CV_L·CV_T) and for the ratio r = CV_L / CV_T
+the difference from the true value, as a percentage of the true value. Figures and columns are
 described in `experiments/README.md`.
 
 ## Units and formats
