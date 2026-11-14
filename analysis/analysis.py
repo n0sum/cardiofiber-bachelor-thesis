@@ -20,17 +20,26 @@ clean configuration.
 
 load() is the only place where the errors are computed, the same for the two
 methods: estimate.ply against the ground truth data/reference/SCENARIO/truth.ply,
-both in format D (r = CV_L / CV_T = exp(2 alpha)).
-Errors per estimable face (mu of the estimate finite); AREA-WEIGHTED statistics:
-  angle    acos(min(1, |f_est . f_true|)), degrees
-  mean_cv  100 (v_est - v_true) / v_true, %, v = sqrt(CV_L CV_T) (mean speed)
-  ratio    100 (r_est - r_true) / r_true, %
-The mean speed v is obtained from format D as exp(mu).
-q50, q90 and q99 (the values below which 50, 90, 99% of the area lies) are
-computed on the absolute value; for mean_cv and ratio there is also the signed
-median. cond = sigma_max / sigma_min of the system of a face (per-face
-estimator only, from estimate.csv); its quantiles, area-weighted, are over the
-faces with computed cond (estimable, and discarded for lambda2 <= 1e-8 lambda1).
+both in format D (mu, alpha, fiber f).
+One error per estimable face (mu of the estimate finite), the log-Euclidean
+distance between the estimated and the true velocity tensor (Arsigny et al.
+2006). The tensor of a face is M = CV_L^2 f f^T + CV_T^2 t t^T, t the transverse
+direction in the plane of the face; its matrix logarithm has the same
+directions and the logarithms of the eigenvalues:
+log M = 2 mu I + 2 alpha (f f^T - t t^T). Then
+  error = ||log M_est - log M_true||_F / (2 sqrt 2)
+        = sqrt((mu_est - mu)^2 + alpha_est^2 + alpha^2 - 2 alpha_est alpha cos(2 theta))
+with theta the angle between estimated and true fiber, cos(2 theta) = 2 c^2 - 1,
+c = |f_est . f_true| (the fibers of format D are unit and tangent to the face).
+Dimensionless; for small errors it reads roughly as a relative error (0.05 ~
+5%). With alpha = 0 (isotropic tissue) the fiber does not enter the error; it
+does not depend on the unit of the speeds (mu shifts by a constant); it is the
+same for speeds or slownesses (log M^-1 = -log M).
+AREA-WEIGHTED statistics: q50, q90 and q99 (the values below which 50, 90, 99%
+of the area lies). cond = sigma_max / sigma_min of the system of a face
+(per-face estimator only, from estimate.csv); its quantiles, area-weighted, are
+over the faces with computed cond (estimable, and discarded for lambda2 <= 1e-8
+lambda1).
 
 per_face.csv, one row per scenario and subset of the per-face method: non-estimable
 area, errors on the estimable faces of the subset and q50, q90 and q99
@@ -51,11 +60,11 @@ r, so there it is compared only at equal r; plots 0d, 2 and 3 are on the scenari
 of SWEEP (uniform fields differing only in r: 1.6, 2 (uniform), 2.4), with all
 the 42 subsets.
 plot0_cond_errors.png (0a), faces with computed cond of the 42 subsets pooled, in
-10 equal-area cond bins, each at its median cond. Three panels angle, mean_cv,
-ratio: per bin q50, q90 and q99 of |error| on its estimable faces, area-weighted,
+10 equal-area cond bins, each at its median cond. Two panels side by side. The
+error: per bin q50, q90 and q99 of the error on its estimable faces, area-weighted,
 points joined by lines (colors and markers of QSTYLE), log scale on both axes,
-in the title the Spearman correlation between cond and |error|, unweighted; in a
-2 x 2 square with the area panel: the % of area of the bin where the estimate is
+in the title the Spearman correlation between cond and error, unweighted. The
+area: the % of area of the bin where the estimate is
 not an ellipse, i.e. the faces with cond but with estimate NaN (the smaller
 eigenvalue lambda2 <= 1e-8 lambda1: the estimated conic is a hyperbola, or an
 ellipse flat to numerical zero). The faces discarded because the smallest
@@ -75,8 +84,8 @@ of cond with k and with r over the faces with computed cond of the three
 scenarios, unweighted. The numbers in cond_k_ratio.csv, one row per (k, r):
 cond_q50, cond_q90 (area-weighted) and the number of faces.
 
-The other figures, each in four PNGs: _area (non-estimable area, one panel) and
-_angle, _mean_cv, _ratio. In plots 1 and 2 the latter have a single
+The other figures, each in two PNGs: _area (non-estimable area, one panel) and
+_error. In plots 1 and 2 the latter has a single
 panel with q50, q90 and q99 (circle, square, triangle, Okabe-Ito colors),
 points only without lines, with the vertical axis on a log scale and labels in
 plain numbers; in plot 4 three panels q50, q90, q99, each with its
@@ -123,13 +132,10 @@ SWEEP = [("r1.6", 1.6), ("uniform", 2.0), ("r2.4", 2.4)]  # plots 0d, 2, 3: unif
 SCENARIOS = MAIN_SCENARIOS + [sc for sc, _ in SWEEP if sc not in MAIN_SCENARIOS]   # tables and plot 4: run_all.sh
 SCENARIO_LABELS = {"uniform": "uniform (r = 2)", "painted": "painted", "r1.6": "r = 1.6", "r2.4": "r = 2.4"}
 SCENARIO_COND = "uniform"                                 # plots 0a, 0b, 0c
-ERRORS = ("angle", "mean_cv", "ratio")
+ERRORS = ("error",)
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
-          "angle": "fiber angle error [deg]",
-          "mean_cv": "|relative error of mean speed √(CV_L·CV_T)| [%]",
-          "ratio": "|relative error of CV_L / CV_T| [%]"}
-NAMES = {"angle": "fiber angle", "mean_cv": "mean speed √(CV_L·CV_T)", "ratio": "CV_L / CV_T"}   # panel titles of plot 0a
+          "error": "log-Euclidean error ‖log M̂ − log M‖ / (2√2)"}
 METHODS = {"per_face": "per-face", "roney": "Roney"}
 BLUE = "#2a78d6"
 QSTYLE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
@@ -158,10 +164,9 @@ def wquantile(values, weights, q):
 
 
 def field(face):
-    """Fiber, mean speed v = sqrt(CV_L CV_T) = exp(mu) and r = CV_L / CV_T per face, from the face element of
-    a format D PLY."""
+    """Fiber, mu and alpha per face, from the face element of a format D PLY."""
     f = np.stack([face[k] for k in ("fx", "fy", "fz")], axis=1)
-    return f, np.exp(face["mu"]), np.exp(2 * face["alpha"])
+    return f, face["mu"], face["alpha"]
 
 
 @functools.cache
@@ -176,20 +181,19 @@ def truth(scenario):
 
 def load(scenario, method, sub):
     """One run, output/SCENARIO/METHOD/SUB/estimate.{ply,csv}, against the ground truth: DataFrame
-    indexed by face_id with area, estimable, cond (per-face) or k_used (Roney) and the errors angle,
-    mean_cv, ratio (degrees, %, %), NaN on the non-estimable faces. The only place with the
-    formulas of the errors."""
-    area, (f_true, speed_true, r_true) = truth(scenario)
+    indexed by face_id with area, estimable, cond (per-face) or k_used (Roney) and the log-Euclidean
+    error, NaN on the non-estimable faces. The only place with the formula of the error."""
+    area, (f_true, mu_true, alpha_true) = truth(scenario)
     case = OUT / scenario / method / sub
     face = read_ply(case / "estimate.ply")["face"]
-    f, speed, r = field(face)
+    f, mu, alpha = field(face)
     df = pd.read_csv(case / "estimate.csv").set_index("face_id")
     df["area"] = area
     df["estimable"] = np.isfinite(face["mu"])
-    # |a.b|: angle between directions, unoriented
-    df["angle"] = np.degrees(np.arccos(np.minimum(1, np.abs(np.sum(f * f_true, axis=1)))))
-    df["mean_cv"] = 100 * (speed - speed_true) / speed_true
-    df["ratio"] = 100 * (r - r_true) / r_true
+    c = np.abs(np.sum(f * f_true, axis=1))                # |cos theta|, theta angle between the fibers
+    # np.maximum: by rounding the radicand can be -1e-17
+    df["error"] = np.sqrt(np.maximum(0, (mu - mu_true) ** 2 + alpha ** 2 + alpha_true ** 2
+                                     - 2 * alpha * alpha_true * (2 * c ** 2 - 1)))
     return df
 
 
@@ -200,14 +204,9 @@ def non_estimable(df):
 
 
 def quantiles(df):
-    """q50, q90 and q99 of the absolute value of each error on the estimable faces, then the signed
-    median of mean_cv and ratio."""
+    """q50, q90 and q99 of the error on the estimable faces."""
     est = df[df["estimable"]]
-    w = est["area"]
-    out = {f"{e}_q{q}": wquantile(est[e].abs(), w, q / 100) for e in ERRORS for q in QUANTILES}
-    for e in ("mean_cv", "ratio"):
-        out[f"{e}_median"] = wquantile(est[e], w, 0.50)
-    return out
+    return {f"{e}_q{q}": wquantile(est[e], est["area"], q / 100) for e in ERRORS for q in QUANTILES}
 
 
 def cond_quantiles(df):
@@ -269,7 +268,7 @@ def tables():
 
 
 def figure(name, title, draw, together=False, after=None):
-    """Four PNGs, FIG/NAME_{area,angle,mean_cv,ratio}.png. draw(ax, cols, ylabel) draws
+    """Two PNGs, FIG/NAME_{area,error}.png. draw(ax, cols, ylabel) draws
     in one panel the columns of cols, {label: column}. With together q50, q90 and q99 are in a
     single panel, otherwise one panel per quantile. after(fig), if given, is called before saving."""
     for q, ylabel in YLABEL.items():
@@ -372,26 +371,25 @@ def main():
     per_face_table.to_csv(FIG / "per_face.csv", index=False, float_format="%.6g")
     comparison.to_csv(FIG / "comparison.csv", index=False, float_format="%.6g")
 
-    # plot 0a: SCENARIO_COND, all subsets, q50, q90, q99 of |error| as a function of cond
+    # plot 0a: SCENARIO_COND, all subsets, q50, q90, q99 of the error as a function of cond
     c = all_subsets(SCENARIO_COND)
     c = c[c["cond"].notna()].sort_values("cond")
     w = c["area"]
     c = c.assign(bin=np.minimum((10 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 9))   # 10 equal-area bins
     est = c[c["estimable"]]
     xc = c.groupby("bin").apply(lambda s: wquantile(s["cond"], s["area"], 0.50)).to_numpy()
-    fig, axes = plt.subplots(2, 2, figsize=(10, 9), layout="constrained")
-    axes = axes.flat
-    for ax, e in zip(axes, ERRORS):
-        for q in QUANTILES:
-            color, marker = QSTYLE[f"q{q}"]
-            y = est.groupby("bin").apply(lambda s: wquantile(s[e].abs(), s["area"], q / 100)).to_numpy()
-            ax.plot(xc, y, color=color, marker=marker, ms=5, lw=1.5, label=f"q{q}", zorder=3)
-        ax.grid(alpha=0.3)
-        ax.set_xlabel("cond, median of the bin (log scale)")
-        ax.set_ylabel(f"{YLABEL[e]}\n(log scale)")             # two lines: the labels are long
-        log_scale(ax, "xy")
-        ax.set_title(f"{NAMES[e]}, Spearman's ρ = {spearmanr(est['cond'], est[e].abs()).statistic:.2f}")
-    ax = axes[3]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), layout="constrained")
+    ax = axes[0]
+    for q in QUANTILES:
+        color, marker = QSTYLE[f"q{q}"]
+        y = est.groupby("bin").apply(lambda s: wquantile(s["error"], s["area"], q / 100)).to_numpy()
+        ax.plot(xc, y, color=color, marker=marker, ms=5, lw=1.5, label=f"q{q}", zorder=3)
+    ax.grid(alpha=0.3)
+    ax.set_xlabel("cond, median of the bin (log scale)")
+    ax.set_ylabel(f"{YLABEL['error']}\n(log scale)")       # two lines: the label is long
+    log_scale(ax, "xy")
+    ax.set_title(f"error, Spearman's ρ = {spearmanr(est['cond'], est['error']).statistic:.2f}")
+    ax = axes[1]
     ax.plot(xc, c.groupby("bin").apply(non_estimable), color=QSTYLE["q50"][0], lw=1.5, marker="o", ms=5)
     ax.grid(alpha=0.3)
     ax.set_xlabel("cond, median of the bin (log scale)")
@@ -399,7 +397,7 @@ def main():
     y_axis(ax, "area where the estimate is not an ellipse [%]")
     ax.set_title("estimate is not an ellipse")
     fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False,
-               title="quantiles of |error| in the bin, area-weighted")
+               title="quantiles of the error in the bin, area-weighted")
     fig.suptitle(with_noise(f"{SCENARIO_COND}, all map subsets: error as a function of cond, 10 equal-area bins"))
     fig.savefig(FIG / "plot0_cond_errors.png", dpi=140, bbox_inches="tight")
     plt.close(fig)

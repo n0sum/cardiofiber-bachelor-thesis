@@ -179,10 +179,10 @@ In the folders of the error-map cases (`error_maps.py`) there is also
 
 ```
 output/mesh/
-  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_mean_cv.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
-  per_face_painted_sub_0-1-2-3-4-5/   (the same five)
-  per_face_painted_sub_1-4-5/         (the same five)
-  roney_painted_sub_1-4-5/            (the same five)
+  per_face_uniform_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_painted_sub_0-1-2-3-4-5/   (the same three)
+  per_face_painted_sub_1-4-5/         (the same three)
+  roney_painted_sub_1-4-5/            (the same three)
   truth_uniform/                      truth_ratio.ply  truth_fibers.ply
   truth_painted/                      truth_ratio.ply  truth_fibers.ply
 ```
@@ -217,14 +217,28 @@ scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
 | `area`      | area of the face from the vertices of the ground truth, `|(b − a) × (c − a)| / 2`, mm² |
 | `estimable` | μ of the estimate finite |
 | `cond` / `k_used` | from `estimate.csv` |
-| `angle`     | fiber angle error, `acos(min(1, |f̂·f|))`, degrees |
-| `mean_cv`   | `100 (v_est − v_true) / v_true`, %, signed; v = √(CV_L·CV_T) is the mean speed, obtained from format D as exp(μ) |
-| `ratio`     | `100 (r_est − r_true) / r_true`, %, signed, r = e^(2α) |
+| `error`     | log-Euclidean distance between estimated and true tensor, below |
 
-The errors are NaN on the non-estimable faces. Statistics are area-weighted:
-q50, q90 and q99 are the values below which 50, 90 and 99% of the area lies,
-of the absolute value of the error; the signed medians of mean_cv and ratio
-(`mean_cv_median`, `ratio_median`) are only in the tables.
+The tensor of a face is M = CV_L² f fᵀ + CV_T² t tᵀ (f fiber, t transverse
+direction in the plane of the face). Its matrix logarithm has the same
+directions and the logarithms of the eigenvalues, log M = 2μ I + 2α (f fᵀ − t tᵀ):
+the three numbers of format D. The error (Arsigny et al. 2006) is
+
+```
+error = ‖log M̂ − log M‖_F / (2√2)
+      = sqrt((μ̂ − μ)² + α̂² + α² − 2 α̂ α cos 2θ)
+```
+
+with θ the angle between estimated and true fiber, computed without matrix
+logarithms from format D: c = |f̂·f|, cos 2θ = 2c² − 1. It is dimensionless and
+for small errors reads roughly as a relative error (0.05 ≈ 5%). With α = 0
+(isotropic tissue) the fiber does not enter it; it does not depend on the unit
+of the speeds (μ shifts by a constant); it is the same for speeds or
+slownesses (log M⁻¹ = −log M).
+
+The error is NaN on the non-estimable faces. Statistics are area-weighted:
+q50, q90 and q99 (`error_q50/q90/q99` in the tables) are the values below
+which 50, 90 and 99% of the area lies.
 
 - `per_face.csv`: one row per scenario and subset of the per-face
   estimator: non-estimable area, errors on the estimable faces of the
@@ -243,9 +257,9 @@ of the absolute value of the error; the signed medians of mean_cv and ratio
   computed cond) and `faces`, the number of such faces (pooled over the
   subsets). The numbers of plot 3.
 
-Plot 0 is four PNGs (0a–0d) and plot 3 one; plots 1, 2 and 4 are four PNGs
-each: `_area` (non-estimable area, one panel) and `_angle`, `_mean_cv`,
-`_ratio`. In plots 1 and 2 these have a single
+Plot 0 is four PNGs (0a–0d) and plot 3 one; plots 1, 2 and 4 are two PNGs
+each: `_area` (non-estimable area, one panel) and `_error`. In plots 1 and 2
+the latter has a single
 panel with q50, q90 and q99 together (circle, square, triangle, Okabe-Ito
 colors), points only without lines, with the vertical axis on a log scale and
 labels in plain numbers (1, 2, 5, 10...); in plot 4 three panels q50, q90 and
@@ -259,7 +273,7 @@ are on the scenarios of `SWEEP`, with all the 42 subsets of each. The boxes
 
 | file                     | content                                                |
 |--------------------------|--------------------------------------------------------|
-| `plot0_cond_errors.png` (0a) | faces with computed cond of the 42 subsets together, in 10 equal-area cond bins, at the median cond of the bin: three panels angle, mean_cv, ratio with, per bin, q50, q90 and q99 of the absolute error on its estimable faces (area-weighted), points joined by lines, log on both axes, in the title Spearman's ρ between cond and |error| (unweighted): cond bounds how large the error can be (q90, q99), not how large it is; in a 2 × 2 square with the area panel: the % of area of the bin where the estimate is not an ellipse, i.e. the faces with cond but estimate NaN (smaller eigenvalue ≤ 1e-8 times the larger one); the faces discarded because the smallest singular value is below threshold have no cond and do not appear |
+| `plot0_cond_errors.png` (0a) | faces with computed cond of the 42 subsets together, in 10 equal-area cond bins, at the median cond of the bin, two panels side by side. The error: per bin q50, q90 and q99 of the error on its estimable faces (area-weighted), points joined by lines, log on both axes, in the title Spearman's ρ between cond and error (unweighted): cond bounds how large the error can be (q90, q99), not how large it is. The area: the % of area of the bin where the estimate is not an ellipse, i.e. the faces with cond but estimate NaN (smaller eigenvalue ≤ 1e-8 times the larger one); the faces discarded because the smallest singular value is below threshold have no cond and do not appear |
 | `plot0_maps_cond.png` (0b) | one box of cond (log) per k, on the faces with computed cond of all the subsets with k maps |
 | `plot0_cond_area.png` (0c) | one point per subset from `per_face.csv`: cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and marker by k; in the title Spearman's ρ over the 42 points |
 | `plot0_ratio_cond.png` (0d) | one box of cond (log) per scenario of `SWEEP`, r on the horizontal axis (1.6, 2, 2.4), on the faces with computed cond of all its 42 subsets: the same mix of k in each box, so the boxes compare |
@@ -276,26 +290,19 @@ the area weighting applies within each subset.
 For MeshLab, which colors the faces with a single field, `quality`:
 
 ```bash
-./estimator/build/ErrorMaps MESH.ply NUMBERS.txt PREFIX
+./estimator/build/ErrorMaps MESH.ply NUMBERS.txt OUT.ply
 ```
 
 with `MESH.ply` a PLY of the mesh (`error_maps.py` passes
 `data/reference/SCENARIO/lat.ply`; only vertices and faces are read) and
 `NUMBERS.txt` an `error_maps.txt` written by `error_maps.py`: only numbers, one
-row per face in `face_id` order, `estimable angle mean_cv ratio`, with `0 0 0 0`
+row per face in `face_id` order, `estimable error`, with `0 0`
 on the non-estimable faces (no `nan`, which `>>` in C++ does not read). The
 numbers come from `load()` of `analysis/analysis.py` and are written with
 `repr`, which reads back exactly as a double. `ErrorMaps` writes with
-`exportAsPly` (`estimator/src/io.cpp`) three text PLYs (`format ascii 1.0`,
-written by happly, which adds a `comment` line), one per error:
-
-| file                    | per-face `quality`                           |
-|-------------------------|----------------------------------------------|
-| `PREFIX_angle.ply`      | fiber angle error, degrees                   |
-| `PREFIX_mean_cv.ply`    | relative error on the mean speed √(CV_L·CV_T), %, signed |
-| `PREFIX_ratio.ply`      | relative error on r = CV_L / CV_T, %, signed |
-
-Header of each file:
+`exportAsPly` (`estimator/src/io.cpp`) one text PLY, `OUT.ply` (`format ascii 1.0`,
+written by happly, which adds a `comment` line), with the log-Euclidean error
+as the per-face `quality`. Header:
 
 ```
 element vertex 21811
@@ -313,8 +320,8 @@ property float quality
 - Vertices: all of them, in the order of `MESH.ply`, `x y z` in mm, with the
   per-vertex normals `nx ny nz`, unit and pointing outward, computed on the
   whole mesh, so a vertex left without faces still has a finite normal.
-- Faces: only the estimable ones (`estimable = 1` in `NUMBERS.txt`), the same
-  in the three files, in `face_id` order; `N` is their number. The triangles
+- Faces: only the estimable ones (`estimable = 1` in `NUMBERS.txt`), in
+  `face_id` order; `N` is their number. The triangles
   are those of `MESH.ply`, as they are (outward normals, as in `truth.ply`), so
   MeshLab shows the surface seen from outside. The non-estimable faces are left
   out because MeshLab crashes on a NaN quality ("Colorize by face quality"):
@@ -329,8 +336,8 @@ any computation (missing faces, float values).
 `error_maps.py` chooses the cases, writes for each one `error_maps.txt` next to
 its `estimate.ply`, creates the folder of the case
 `output/mesh/METHOD_SCENARIO_SUB/` (CASEDIR) and prints a line
-`MESH NUMBERS CASEDIR`; `run_all.sh` calls `ErrorMaps MESH NUMBERS CASEDIR/error`.
-The PLYs are `CASEDIR/error_{angle,mean_cv,ratio}.ply`:
+`MESH NUMBERS CASEDIR`; `run_all.sh` calls `ErrorMaps MESH NUMBERS CASEDIR/error.ply`.
+The cases:
 
 1. per-face, all maps, on each scenario of `SCENARIOS_ALL_MAPS` (`uniform`
    and `painted`);

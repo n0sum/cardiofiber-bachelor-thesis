@@ -136,10 +136,10 @@ of `painted` with the largest paired area):
 
 ```
 output/mesh/
-  per_face_uniform_sub_0-1-2-3-4-5/   error_angle.ply  error_mean_cv.ply  error_ratio.ply  estimate_ratio.ply  estimate_fibers.ply
-  per_face_painted_sub_0-1-2-3-4-5/   (the same five)
-  per_face_painted_sub_1-4-5/         (the same five)
-  roney_painted_sub_1-4-5/            (the same five)
+  per_face_uniform_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_painted_sub_0-1-2-3-4-5/   (the same three)
+  per_face_painted_sub_1-4-5/         (the same three)
+  roney_painted_sub_1-4-5/            (the same three)
   truth_uniform/                      truth_ratio.ply  truth_fibers.ply
   truth_painted/                      truth_ratio.ply  truth_fibers.ply
 ```
@@ -154,11 +154,12 @@ Percentile Crop 0.
 
 The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the
-comparison with Roney on the map triplets. Errors are area-weighted over the
-estimable faces: the angle, in degrees, between the estimated and the true
-fiber; for the mean speed √(CV_L·CV_T) and for the ratio r = CV_L / CV_T
-the difference from the true value, as a percentage of the true value. Figures and columns are
-described in `experiments/README.md`.
+comparison with Roney on the map triplets. There is one error per estimable
+face, the log-Euclidean distance between the estimated and the true velocity
+tensor M = CV_L² f fᵀ + CV_T² t tᵀ (Arsigny et al. 2006),
+‖log M̂ − log M‖_F / (2√2): dimensionless, for small errors roughly a relative
+error (0.05 ≈ 5%); its statistics are area-weighted over the estimable faces.
+Figures and columns are described in `experiments/README.md`.
 
 ## Units and formats
 

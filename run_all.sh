@@ -63,13 +63,13 @@ done
 
 # PLYs for MeshLab, all in output/mesh/: the cases are chosen in error_maps.py, which writes
 # the errors of each case next to its estimate.ply, in error_maps.txt, creates the folder
-# output/mesh/METHOD_SCENARIO_SUB/ and prints "MESH NUMBERS CASEDIR". Per case: the three error
-# PLYs and FiberView on the estimate in CASEDIR/, FiberView on the ground truth of its scenario
+# output/mesh/METHOD_SCENARIO_SUB/ and prints "MESH NUMBERS CASEDIR". Per case: the error
+# PLY (log-Euclidean tensor error) and FiberView on the estimate in CASEDIR/, FiberView on the ground truth of its scenario
 # in output/mesh/truth_SCENARIO/ (for painted rewritten once per case, same files).
 # Once without noise and once per noise level (error_maps.py N, scenarios S_noiseN).
 for n in "" $NOISES; do
     python experiments/error_maps.py $n | while read -r mesh numbers case_dir; do
-        ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error"   # -> error_{angle,mean_cv,ratio}.ply
+        ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error.ply"   # -> error.ply
         ./estimator/build/FiberView "$(dirname "$numbers")/estimate.ply" "$case_dir/estimate"  # -> estimate_{ratio,fibers}.ply
         scenario=$(basename "$(dirname "$mesh")")
         mkdir -p "output/mesh/truth_$scenario"

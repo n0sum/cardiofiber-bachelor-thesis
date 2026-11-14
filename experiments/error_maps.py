@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Error maps in PLY for MeshLab, from the runs of the grid. The errors come from
-load() of analysis/analysis.py, against the ground truth.
+Error maps in PLY for MeshLab, from the runs of the grid. The error, the
+log-Euclidean distance between estimated and true tensor, comes from load() of
+analysis/analysis.py, against the ground truth.
 For each case writes next to its estimate.ply the file error_maps.txt, only
-numbers: one row per face, in face_id order, "estimable angle mean_cv ratio",
-0 0 0 0 on the non-estimable faces. Then creates the folder of the case,
+numbers: one row per face, in face_id order, "estimable error", 0 0 on the
+non-estimable faces. Then creates the folder of the case,
 CASEDIR = output/mesh/METHOD_SCENARIO_SUB, and prints a line
 "MESH NUMBERS CASEDIR": MESH is data/reference/SCENARIO/lat.ply, NUMBERS the
-error_maps.txt. run_all.sh passes them to ErrorMaps with PREFIX CASEDIR/error,
-which writes CASEDIR/error_{angle,mean_cv,ratio}.ply. The cases:
+error_maps.txt. run_all.sh passes them to ErrorMaps with OUT CASEDIR/error.ply,
+which writes the error as the quality of the faces. The cases:
     per-face, all maps, on each scenario of SCENARIOS_ALL_MAPS
     per-face and Roney on the triplet of SCENARIO_TRIPLET with the largest
     paired area: faces estimable by both methods, area-weighted
@@ -19,7 +20,7 @@ output/mesh/per_face_painted_noise0.1_sub_0-1-2-3-4-5/.
 
 Usage, from the repository root:
     python experiments/error_maps.py [NOISE] | while read -r mesh numbers case_dir; do
-        ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error"
+        ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error.ply"
     done
 """
 
@@ -38,9 +39,8 @@ def line(method, scenario, sub, df):
     """Writes error_maps.txt of the case, creates its folder in output/mesh/ and prints its line. Numbers with repr, which reads back
     exactly as a double; no "nan", which >> in C++ does not read."""
     rows = []
-    for e, a, m, r in zip(df["estimable"].tolist(), df["angle"].tolist(), df["mean_cv"].tolist(),
-                          df["ratio"].tolist()):
-        rows.append(f"1 {a!r} {m!r} {r!r}" if e else "0 0 0 0")
+    for e, err in zip(df["estimable"].tolist(), df["error"].tolist()):
+        rows.append(f"1 {err!r}" if e else "0 0")
     case = f"output/{scenario}/{method}/{sub}"
     (ROOT / case / "error_maps.txt").write_text("\n".join(rows) + "\n")
     case_dir = f"output/mesh/{method}_{scenario}_{sub}"

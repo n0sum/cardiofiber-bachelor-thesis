@@ -9,7 +9,7 @@ This file lists where `roney.py` follows the paper and where it departs from
 it, why, and what each departure does to the comparison with the per-face
 estimator. Short version:
 
-- the **errors** (fiber angle, mean speed √(CV_L·CV_T), anisotropy ratio) are compared only on
+- the **error** (log-Euclidean distance between estimated and true tensor) is compared only on
   faces estimated by both methods, and on those faces `roney.py` does what the
   paper describes;
 - the **non-estimable area** of Roney's method is partly caused by our choices
@@ -146,8 +146,11 @@ an ellipse or the system is singular (`k_used = 3`, NaN in the estimate).
   and no interpolation) and is not a shortcoming of the method. The second
   part is due to the method. The total should not be presented as a
   comparison of coverage between the two methods.
-- **Fidelity.** On our data the median fiber angle error of `roney.py` is
-  in `comparison.csv` (`output/figures/`); the paper reports 10.7–12.1° with 3 maps (table 3). The data
+- **Fidelity.** On our data the median fiber angle error of `roney.py` on the
+  paired faces was 6.6–14.1° (pooled rows of `comparison.csv`, the four clean
+  scenarios), measured with the angle metric that `analysis.py` had up to
+  commit 13f130b and that the log-Euclidean error has since replaced; the
+  paper reports 10.7–12.1° with 3 maps (table 3). The data
   differ (monodomain simulations with the Courtemanche model there, eikonal
   here), and the published errors include the interpolated regions, so this
   is only an order-of-magnitude check.
