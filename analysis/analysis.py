@@ -27,12 +27,12 @@ distance between the estimated and the true velocity tensor (Arsigny et al.
 direction in the plane of the face; its matrix logarithm has the same
 directions and the logarithms of the eigenvalues:
 log M = 2 mu I + 2 alpha (f f^T - t t^T). Then
-  error = ||log M_est - log M_true||_F / (2 sqrt 2)
-        = sqrt((mu_est - mu)^2 + alpha_est^2 + alpha^2 - 2 alpha_est alpha cos(2 theta))
+  error = ||log M_est - log M_true||_F
+        = 2 sqrt 2 sqrt((mu_est - mu)^2 + alpha_est^2 + alpha^2 - 2 alpha_est alpha cos(2 theta))
 with theta the angle between estimated and true fiber, cos(2 theta) = 2 c^2 - 1,
 c = |f_est . f_true| (the fibers of format D are unit and tangent to the face).
-Dimensionless; for small errors it reads roughly as a relative error (0.05 ~
-5%). With alpha = 0 (isotropic tissue) the fiber does not enter the error; it
+Dimensionless; with exact fiber and anisotropy, a relative error eps on both
+speeds gives error ~ 2 sqrt 2 eps (0.05 ~ 1.8% on the speeds). With alpha = 0 (isotropic tissue) the fiber does not enter the error; it
 does not depend on the unit of the speeds (mu shifts by a constant); it is the
 same for speeds or slownesses (log M^-1 = -log M).
 AREA-WEIGHTED statistics: q50, q90 and q99 (the values below which 50, 90, 99%
@@ -135,7 +135,7 @@ SCENARIO_COND = "uniform"                                 # plots 0a, 0b, 0c
 ERRORS = ("error",)
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
-          "error": "log-Euclidean error ‖log M̂ − log M‖ / (2√2)"}
+          "error": "log-Euclidean error ‖log M̂ − log M‖"}
 METHODS = {"per_face": "per-face", "roney": "Roney"}
 BLUE = "#2a78d6"
 QSTYLE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
@@ -191,9 +191,11 @@ def load(scenario, method, sub):
     df["area"] = area
     df["estimable"] = np.isfinite(face["mu"])
     c = np.abs(np.sum(f * f_true, axis=1))                # |cos theta|, theta angle between the fibers
+    # log-Euclidean distance ||log M_hat - log M||_F (Arsigny et al. 2006)
+    #   = 2 sqrt 2 sqrt(dmu^2 + alpha_hat^2 + alpha^2 - 2 alpha_hat alpha cos 2theta)
     # np.maximum: by rounding the radicand can be -1e-17
-    df["error"] = np.sqrt(np.maximum(0, (mu - mu_true) ** 2 + alpha ** 2 + alpha_true ** 2
-                                     - 2 * alpha * alpha_true * (2 * c ** 2 - 1)))
+    df["error"] = 2 * np.sqrt(2) * np.sqrt(np.maximum(0, (mu - mu_true) ** 2 + alpha ** 2 + alpha_true ** 2
+                                                      - 2 * alpha * alpha_true * (2 * c ** 2 - 1)))
     return df
 
 

@@ -157,8 +157,8 @@ estimator (one row per scenario and subset), `comparison.csv` for the
 comparison with Roney on the map triplets. There is one error per estimable
 face, the log-Euclidean distance between the estimated and the true velocity
 tensor M = CV_L² f fᵀ + CV_T² t tᵀ (Arsigny et al. 2006),
-‖log M̂ − log M‖_F / (2√2): dimensionless, for small errors roughly a relative
-error (0.05 ≈ 5%); its statistics are area-weighted over the estimable faces.
+‖log M̂ − log M‖_F: dimensionless; with exact fiber and anisotropy, a relative
+error ε on both speeds gives about 2√2 ε (0.05 ≈ 1.8% on the speeds); its statistics are area-weighted over the estimable faces.
 Figures and columns are described in `experiments/README.md`.
 
 ## Units and formats

@@ -228,13 +228,14 @@ directions and the logarithms of the eigenvalues, log M = 2μ I + 2α (f fᵀ �
 the three numbers of format D. The error (Arsigny et al. 2006) is
 
 ```
-error = ‖log M̂ − log M‖_F / (2√2)
-      = sqrt((μ̂ − μ)² + α̂² + α² − 2 α̂ α cos 2θ)
+error = ‖log M̂ − log M‖_F
+      = 2√2 · sqrt((μ̂ − μ)² + α̂² + α² − 2 α̂ α cos 2θ)
 ```
 
 with θ the angle between estimated and true fiber, computed without matrix
-logarithms from format D: c = |f̂·f|, cos 2θ = 2c² − 1. It is dimensionless and
-for small errors reads roughly as a relative error (0.05 ≈ 5%). With α = 0
+logarithms from format D: c = |f̂·f|, cos 2θ = 2c² − 1. It is dimensionless;
+with exact fiber and anisotropy, a relative error ε on both speeds gives about
+2√2 ε (0.05 ≈ 1.8% on the speeds). With α = 0
 (isotropic tissue) the fiber does not enter it; it does not depend on the unit
 of the speeds (μ shifts by a constant); it is the same for speeds or
 slownesses (log M⁻¹ = −log M).
