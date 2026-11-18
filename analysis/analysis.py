@@ -83,6 +83,9 @@ computed cond of the subsets with that k; log scale; in the title Spearman's rho
 of cond with k and with r over the faces with computed cond of the three
 scenarios, unweighted. The numbers in cond_k_ratio.csv, one row per (k, r):
 cond_q50, cond_q90 (area-weighted) and the number of faces.
+plot3_error_k_ratio.png, the same with the log-Euclidean error E in place of cond,
+on the estimable faces of the subsets with that k; in the title Spearman's rho of E
+with k and with r over the same faces, unweighted.
 
 The other figures, each in two PNGs: _area (non-estimable area, one panel) and
 _error. In plots 1 and 2 the latter has a single
@@ -479,32 +482,41 @@ def main():
     figure("plot2_ratio", "uniform fields differing only in r, per-face: one point per map subset", draw2,
            together=True)
 
-    # plot 3: cond by k and by r, boxes grouped by k, one per r
-    ks = sorted(sweep["k"].unique())
+    # plot 3: cond (plot3_cond_k_ratio) and error (plot3_error_k_ratio) by k and by r, boxes grouped by k, one per r
     colors = dict(zip(SCENARIOS, OKABE_ITO))              # the colors of the scenarios in plot 4
-    fig, ax = plt.subplots(figsize=(9, 4.8), layout="constrained")
-    rows = []
-    for j, (sc, r) in enumerate(SWEEP):
-        s3 = sweep[sweep["r"] == r]
-        x = np.array(ks) + 0.27 * (j - 1)
-        boxes(ax, x, x - 0.11, x + 0.11, s3.groupby("k"), "cond", color=colors[sc], label=f"r = {r:g}")
-        for k, g in s3.groupby("k"):
-            rows.append({"k": k, "r": r, "scenario": sc, "cond_q50": wquantile(g["cond"], g["area"], 0.50),
-                         "cond_q90": wquantile(g["cond"], g["area"], 0.90), "faces": len(g)})
+    sweep_all = pd.concat([all_subsets(sc).assign(r=r) for sc, r in SWEEP])
+
+    def plot3(col, name, ylabel, what, symbol, faces):
+        """Boxes of col on the faces where it is defined; returns the rows (k, r) of q50, q90 and faces."""
+        s = sweep_all[sweep_all[col].notna()]
+        ks = sorted(s["k"].unique())
+        fig, ax = plt.subplots(figsize=(9, 4.8), layout="constrained")
+        rows = []
+        for j, (sc, r) in enumerate(SWEEP):
+            s3 = s[s["r"] == r]
+            x = np.array(ks) + 0.27 * (j - 1)
+            boxes(ax, x, x - 0.11, x + 0.11, s3.groupby("k"), col, color=colors[sc], label=f"r = {r:g}")
+            for k, g in s3.groupby("k"):
+                rows.append({"k": k, "r": r, "scenario": sc, f"{col}_q50": wquantile(g[col], g["area"], 0.50),
+                             f"{col}_q90": wquantile(g[col], g["area"], 0.90), "faces": len(g)})
+        rho_k = spearmanr(s[col], s["k"]).statistic
+        rho_r = spearmanr(s[col], s["r"]).statistic
+        ax.grid(alpha=0.3)
+        ax.set_xticks(ks)
+        ax.set_xlabel("maps used, k")
+        y_axis(ax, ylabel, log=True)
+        fig.legend(*ax.get_legend_handles_labels(), loc="outside right center", frameon=False)
+        boxes_note(fig)
+        fig.suptitle(with_noise(f"uniform fields differing only in r, all map subsets: {what} by k and by r\n"
+                                f"Spearman's ρ({symbol}, k) = {rho_k:.2f}, ρ({symbol}, r) = {rho_r:.2f} "
+                                f"({faces}, unweighted)"))
+        fig.savefig(FIG / f"{name}.png", dpi=140, bbox_inches="tight")
+        plt.close(fig)
+        return rows
+
+    rows = plot3("cond", "plot3_cond_k_ratio", "cond", "cond", "cond", "faces with cond")
     pd.DataFrame(rows).sort_values(["k", "r"]).to_csv(FIG / "cond_k_ratio.csv", index=False, float_format="%.6g")
-    rho_k = spearmanr(sweep["cond"], sweep["k"]).statistic
-    rho_r = spearmanr(sweep["cond"], sweep["r"]).statistic
-    ax.grid(alpha=0.3)
-    ax.set_xticks(ks)
-    ax.set_xlabel("maps used, k")
-    y_axis(ax, "cond", log=True)
-    fig.legend(*ax.get_legend_handles_labels(), loc="outside right center", frameon=False)
-    boxes_note(fig)
-    fig.suptitle(with_noise(f"uniform fields differing only in r, all map subsets: cond by k and by r\n"
-                            f"Spearman's ρ(cond, k) = {rho_k:.2f}, ρ(cond, r) = {rho_r:.2f} "
-                            f"(faces with cond, unweighted)"))
-    fig.savefig(FIG / "plot3_cond_k_ratio.png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
+    plot3("error", "plot3_error_k_ratio", YLABEL["error"], "log-Euclidean error E", "E", "estimable faces")
 
     # plot 4: per-face vs Roney, one point per triplet and scenario
     triplets = comparison[comparison["sub"] != "pooled"]
