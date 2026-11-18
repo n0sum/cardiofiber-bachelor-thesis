@@ -50,11 +50,11 @@ def read_conf(path):
 
 
 def read_ply(path):
-    """Binary little endian PLY with vertices and triangles: vertex properties all scalar,
-    faces 'list uchar int' followed by scalar properties (double, float or int)."""
-    f = open(path, "rb")
+    """Text PLY with vertices and triangles: vertex properties all scalar, faces
+    'list uchar int' followed by scalar properties (double, float or int)."""
+    f = open(path)
     elems, cur = {}, None
-    while (line := f.readline().decode("ascii").strip()) != "end_header":
+    while (line := f.readline().strip()) != "end_header":
         w = line.split()
         if w[0] == "element":
             cur = w[1]
@@ -65,7 +65,7 @@ def read_ply(path):
             elems[cur][1].append((w[2], {"double": "<f8", "float": "<f4", "int": "<i4"}[w[1]]))
     out = {}
     for name, (n, dt) in elems.items():
-        out[name] = np.fromfile(f, dtype=np.dtype(dt), count=n)
+        out[name] = np.loadtxt(f, dtype=np.dtype(dt), max_rows=n, comments=None, ndmin=1)
     return out
 
 

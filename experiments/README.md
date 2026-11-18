@@ -59,11 +59,13 @@ differ only in μ and α:
 
 ## Format D: conduction field
 
-The ground truth and the estimates of both methods. Binary PLY, little endian:
+The ground truth and the estimates of both methods. Text PLY, one line per
+vertex and one per face (`3 a b c fx fy fz mu alpha`), doubles with 17
+significant digits, which read back exactly:
 
 ```
 ply
-format binary_little_endian 1.0
+format ascii 1.0
 comment mu = (ln CV_L + ln CV_T) / 2, alpha = (ln CV_L - ln CV_T) / 2, CV in mm/ms, natural log
 element vertex 21811
 property double x
@@ -84,14 +86,15 @@ end_header
   AugmentA triangles once, `(a, b, c) -> (a, c, b)`; after that nothing flips
   them again, and every other file has the faces of `truth.ply`.
 - Fiber `fx fy fz`: unit, tangent to the face; its sign is irrelevant.
-- Faces without a value (non-estimable): NaN in `fx fy fz mu alpha`. Never
-  zeros: μ = 0 means 1 mm/ms.
+- Faces without a value (non-estimable): NaN in `fx fy fz mu alpha`, written
+  `nan` (`-nan` by happly when the sign bit is set). Never zeros: μ = 0 means
+  1 mm/ms. happly reads them with `strtod` (see `estimator/THIRD_PARTY.md`).
 - The files written by `Estimate` (happly) have one more comment line,
   `Written with hapPLY`.
 
 ## `lat.ply`: activation maps
 
-Binary PLY written by `Simulate`: per vertex `x y z lat_0 … lat_5` (double;
+Text PLY (`format ascii 1.0`) written by `Simulate`: per vertex `x y z lat_0 … lat_5` (double;
 mm, ms), faces `vertex_indices` as in `truth.ply`. Map k is paced from the face
 in row k of `simulator/stage1/pacing_sites.csv`. In the scenarios `S_noiseN`
 the LATs carry the Gaussian noise described above.

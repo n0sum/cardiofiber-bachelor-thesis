@@ -13,5 +13,10 @@ It was a git submodule in the previous repository. It has been **vendored**
 depending on an upstream that can move: a necessary condition for
 the build to be reproducible over time.
 
-To update it: download `happly.h` from upstream, replace the file and
-update the commit above.
+Local change: in the ASCII reader (`parseNext` of scalar and list properties) floating-point
+tokens are parsed with `std::strtod`/`strtof` instead of `>>`, which with libstdc++ does not read
+`nan`, `-nan`, `inf` and silently gives 0 (the non-estimable faces of format D are NaN); integers
+are read with `>>` as upstream.
+
+To update it: download `happly.h` from upstream, replace the file,
+re-apply the local change above and update the commit.

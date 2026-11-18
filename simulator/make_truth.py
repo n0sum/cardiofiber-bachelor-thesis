@@ -50,17 +50,19 @@ COMMENT = "mu = (ln CV_L + ln CV_T) / 2, alpha = (ln CV_L - ln CV_T) / 2, CV in 
 
 
 def write_ply(path, vertex, face):
-    """vertex and face are structured arrays; face starts with n, a, b, c, the list of vertices."""
+    """vertex and face are structured arrays; face starts with n, a, b, c, the list of vertices.
+    Text PLY, one line per vertex and one per face; integers with %d, doubles with %.17g, which
+    reads back exactly (NaN as "nan")."""
     ply_type = {np.dtype("<f4"): "float", np.dtype("<f8"): "double", np.dtype("<i4"): "int"}
-    header = ["ply", "format binary_little_endian 1.0", f"comment {COMMENT}", f"element vertex {len(vertex)}"]
+    header = ["ply", "format ascii 1.0", f"comment {COMMENT}", f"element vertex {len(vertex)}"]
     header += [f"property {ply_type[vertex.dtype[p]]} {p}" for p in vertex.dtype.names]
     header += [f"element face {len(face)}", "property list uchar int vertex_indices"]
     header += [f"property {ply_type[face.dtype[p]]} {p}" for p in face.dtype.names[4:]]
     header += ["end_header"]
-    with open(path, "wb") as f:
-        f.write(("\n".join(header) + "\n").encode("ascii"))
-        vertex.tofile(f)
-        face.tofile(f)
+    with open(path, "w") as f:
+        f.write("\n".join(header) + "\n")
+        for a in (vertex, face):
+            np.savetxt(f, a, fmt=["%d" if a.dtype[p].kind in "iu" else "%.17g" for p in a.dtype.names])
 
 
 def gray(path):

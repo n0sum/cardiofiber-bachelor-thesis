@@ -198,6 +198,6 @@ int main(int argc, char** argv) {
     }
     plyOut.addElement("face", numFaces);
     plyOut.getElement("face").addListProperty<int>("vertex_indices", faces);
-    plyOut.write(latFile, happly::DataFormat::Binary);
+    plyOut.write(latFile, happly::DataFormat::ASCII);
     return 0;
 }

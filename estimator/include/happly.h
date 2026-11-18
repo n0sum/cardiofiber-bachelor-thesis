@@ -59,6 +59,7 @@ SOFTWARE.
 #include <type_traits>
 #include <vector>
 #include <climits>
+#include <cstdlib>
 
 // General namespace wrapping all Happly things.
 namespace happly {
@@ -102,6 +103,21 @@ template <> struct CanonicalName<size_t>                    { typedef std::condi
 template <class T> struct SerializeType                 { typedef T         type; };
 template <> struct SerializeType<uint8_t>               { typedef int32_t   type; };
 template <> struct SerializeType< int8_t>               { typedef int32_t   type; };
+
+// (ASCII reading) One token to a value. Floating point with strtod/strtof (cardiofiber, see THIRD_PARTY.md):
+// with libstdc++ >> does not read "nan", "-nan", "inf" and silently gives 0. Integers with >> as upstream.
+template <class T> typename std::enable_if<!std::is_floating_point<T>::value, T>::type parseToken(const std::string& token) {
+  std::istringstream iss(token);
+  T tmp;
+  iss >> tmp;
+  return tmp;
+}
+inline double parseTokenFloating(const std::string& token, double*) { return std::strtod(token.c_str(), nullptr); }
+inline float parseTokenFloating(const std::string& token, float*) { return std::strtof(token.c_str(), nullptr); }
+inline long double parseTokenFloating(const std::string& token, long double*) { return std::strtold(token.c_str(), nullptr); }
+template <class T> typename std::enable_if<std::is_floating_point<T>::value, T>::type parseToken(const std::string& token) {
+  return parseTokenFloating(token, static_cast<T*>(nullptr));
+}
 
 // Give address only if types are same (used below when conditionally copying data)
 // last int/char arg is to resolve ambiguous overloads, just always pass 0 and the int version will be preferred
@@ -317,10 +333,7 @@ public:
    */
   virtual void parseNext(const std::vector<std::string>& tokens, size_t& currEntry) override {
     data.emplace_back();
-    std::istringstream iss(tokens[currEntry]);
-    typename SerializeType<T>::type tmp; // usually the same type as T
-    iss >> tmp;
-    data.back() = tmp;
+    data.back() = parseToken<typename SerializeType<T>::type>(tokens[currEntry]); // usually the same type as T
     currEntry++;
   };
 
@@ -478,10 +491,7 @@ public:
     size_t afterSize = currSize + count;
     flattenedData.resize(afterSize);
     for (size_t iFlat = currSize; iFlat < afterSize; iFlat++) {
-      std::istringstream iss(tokens[currEntry]);
-      typename SerializeType<T>::type tmp; // usually the same type as T
-      iss >> tmp;
-      flattenedData[iFlat] = tmp;
+      flattenedData[iFlat] = parseToken<typename SerializeType<T>::type>(tokens[currEntry]); // usually the same type as T
       currEntry++;
     }
     flattenedIndexStart.emplace_back(afterSize);

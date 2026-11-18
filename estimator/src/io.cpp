@@ -87,7 +87,7 @@ void writeTensorPly(const std::string& filename, const TensorPly& out) {
     f.addProperty<double>("fz", fz);
     f.addProperty<double>("mu", out.mu);
     f.addProperty<double>("alpha", out.alpha);
-    plyOut.write(filename, happly::DataFormat::Binary);
+    plyOut.write(filename, happly::DataFormat::ASCII);
 }
 
 void exportAsPly(const std::string &filename, const cardiofiber::Mesh& mesh, const std::vector<double>& faceQuality,

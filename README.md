@@ -171,10 +171,10 @@ Figures and columns are described in `experiments/README.md`.
   normals; `make_truth.py` flips them once, and every file after it has
   outward normals.
 - `.lon`: first line `2`, then per triangle fiber and sheet, three components each.
-- Format D (`truth.ply`, `estimate.ply`): binary PLY, per vertex `x y z`, per face
+- Format D (`truth.ply`, `estimate.ply`): text PLY, per vertex `x y z`, per face
   the triangle, the unit fiber `fx fy fz` and `mu`, `alpha` with
   CV_L = e^(mu+alpha), CV_T = e^(mu-alpha); NaN on faces without a value.
-- `lat.ply`: binary PLY, per vertex `x y z lat_0 … lat_5` (mm, ms), faces as in
+- `lat.ply`: text PLY, per vertex `x y z lat_0 … lat_5` (mm, ms), faces as in
   `truth.ply`; `lat_k` from site k.
 - `estimate.csv`, the `.conf` files, `error_maps.txt` and the PLYs for MeshLab:
   `experiments/README.md`.
