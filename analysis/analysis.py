@@ -2,8 +2,9 @@
 """
 Analysis of the experiments, all on the painted mean speed (mu of
 simulator/painted_mu.ply). For each scenario of SCENARIOS (the same list, in
-the same order, as run_all.sh: GRID, then CORE) the 42 subsets of at least 3
-maps with the per-face estimator (output/SCENARIO/per_face/sub_*/); for each
+the same order, as run_all.sh: GRID, then CORE) the subsets with the per-face
+estimator (output/SCENARIO/per_face/sub_*/): on GRID the 42 subsets of at least
+3 maps, on CORE only the 15 with CORE_K = 4 maps; for each
 scenario of GRID also the 20 triplets with method 2 of Roney et al. 2019
 (output/SCENARIO/roney/sub_i-j-k/). Each run has estimate.ply (format D) and
 estimate.csv.
@@ -38,7 +39,8 @@ of the area lies). cond = sigma_max / sigma_min of the system of a face
 (per-face estimator only, from estimate.csv): only in per_face.csv, no figure
 uses it.
 
-per_face.csv, one row per scenario and subset of the per-face method: non-estimable
+per_face.csv, one row per scenario and subset of the per-face method (on CORE only the
+15 subsets with 4 maps): non-estimable
 area, errors on the estimable faces of the subset and q50, q90 and q99
 of cond (area-weighted, on the faces with computed cond).
 
@@ -67,13 +69,6 @@ Figures:
                        cell error_mean, error_q99 and the non-estimable area
   plot_core.png        the rows of core.csv as a function of r: left error_mean
                        and error_q99, right the non-estimable area
-  plot3_error_k_ratio.png
-                       boxes of the log-Euclidean error E grouped by k (3 to 6), in
-                       each group one box per scenario of CORE, one color per r, on
-                       the estimable faces of the subsets with that k, log scale;
-                       boxes from q25 to q75, line at q50, whiskers from q10 to q90,
-                       area-weighted; in the title Spearman's rho of E with k and
-                       with r over the same faces, unweighted
   plot4_roney_noise_{area,error}.png
                        per-face vs Roney, one point per triplet and scenario of
                        GRID (80 points, one color and marker per sigma). _area:
@@ -95,9 +90,8 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm, to_rgba
-from matplotlib.ticker import FormatStrFormatter, LogLocator, NullFormatter
-from scipy.stats import spearmanr
+from matplotlib.colors import LogNorm
+from matplotlib.ticker import NullFormatter
 
 ROOT = Path(__file__).resolve().parents[1]                # repository root
 sys.path.insert(0, str(ROOT / "estimator"))
@@ -110,7 +104,7 @@ GRID = [("painted", 0.0), ("painted_noise0.05", 0.05), ("painted_noise0.1", 0.1)
         ("painted_noise0.3", 0.3)]                        # (scenario, LAT noise sigma in ms), increasing sigma
 CORE = [("painted_r1.2_noise0.05", 1.2), ("painted_r2_noise0.05", 2.0),
         ("painted_r2.8_noise0.05", 2.8)]                  # (scenario, constant r), increasing r
-CORE_K = 4                                                # maps of the core sample
+CORE_K = 4                                                # maps of the core sample: equal to CORE_K in run_all.sh
 CORE_NOISE = 0.05                                         # sigma (ms) of the scenarios of CORE
 SCENARIOS = [sc for sc, _ in GRID] + [sc for sc, _ in CORE]   # per_face.csv: the order of run_all.sh
 ERRORS = ("error",)
@@ -118,7 +112,7 @@ QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
           "error": "log-Euclidean error ‖log M̂ − log M‖"}
 METHODS = {"per_face": "per-face", "roney": "Roney"}
-OKABE_ITO = ("#000000", "#0072B2", "#D55E00", "#009E73", "#E69F00", "#56B4E9", "#CC79A7")  # scenarios of plots 3, 4
+OKABE_ITO = ("#000000", "#0072B2", "#D55E00", "#009E73", "#E69F00", "#56B4E9", "#CC79A7")  # scenarios of plot 4
 MARKERS = "osD^v<>"                                       # scenarios of plot 4
 
 
@@ -200,7 +194,7 @@ def roney_split(df, method):
 
 @functools.cache
 def all_subsets(scenario):
-    """The 42 per-face runs of a scenario concatenated, with the columns k (maps of the subset) and
+    """All the per-face runs of a scenario concatenated, with the columns k (maps of the subset) and
     sub. Read-only: shared between the plots."""
     return pd.concat([load(scenario, "per_face", sub).assign(k=sub.count("-") + 1, sub=sub)
                       for sub in subs(scenario, "per_face")])
@@ -267,24 +261,6 @@ def figure(name, title, draw, after=None):
         plt.close(fig)
 
 
-def log_scale(ax, which):
-    """Log scale on the given axes ("x", "y"), with labels in plain numbers (1, 2, 5, 10, 20) instead
-    of powers of 10: ticks 1-2-5 per decade, or 1-9 if with those there are fewer than four labels.
-    Must be called after drawing the data."""
-    for a in which:
-        getattr(ax, f"set_{a}scale")("log")
-        axis = getattr(ax, f"{a}axis")
-        lo, hi = getattr(ax, f"get_{a}lim")()
-        for subs in ((1, 2, 5), (1, 2, 3, 4, 5, 6, 7, 8, 9)):
-            ticks = [t for t in LogLocator(subs=subs).tick_values(lo, hi) if lo <= t <= hi]
-            if len(ticks) >= 4:
-                break
-        axis.set_major_locator(LogLocator(subs=subs))
-        axis.set_major_formatter(FormatStrFormatter("%g"))
-        axis.set_minor_formatter(NullFormatter())
-        ax.grid(axis=a, which="minor", alpha=0.15)
-
-
 def separate_tick_labels(fig):
     """Moves overlapping tick labels onto several rows: downward on the x axis, to the
     left on the y axis."""
@@ -304,31 +280,10 @@ def separate_tick_labels(fig):
                 t.set_pad(t.get_pad() + r * step * px_pt)
 
 
-def y_axis(ax, ylabel, log=False):
-    """Vertical axis: on a log scale, or linear from 0."""
-    if log:
-        ax.set_ylabel(f"{ylabel} (log scale)")
-        log_scale(ax, "y")
-    else:
-        ax.set_ylabel(ylabel)
-        ax.set_ylim(bottom=0)
-
-
-def boxes(ax, x, x0, x1, groups, col, color, label=None):
-    """One box per group, in x from x0 to x1: from q25 to q75 of the absolute value of col, line at q50 and whiskers
-    from q10 to q90, area-weighted."""
-    q10, q25, q50, q75, q90 = (groups.apply(lambda s: wquantile(s[col].abs(), s["area"], q)).to_numpy()
-                              for q in (0.10, 0.25, 0.50, 0.75, 0.90))
-    ax.vlines(x, q10, q25, color=color, lw=1)
-    ax.vlines(x, q75, q90, color=color, lw=1)
-    ax.bar(x0, q75 - q25, width=x1 - x0, bottom=q25, align="edge", facecolor=to_rgba(color, 0.25), edgecolor=color,
-           lw=1, zorder=3, label=label)
-    ax.hlines(q50, x0, x1, color=color, lw=2, zorder=4)
-
-
-def boxes_note(fig):
-    """The legend of the boxes, below the figure."""
-    fig.supxlabel("box: q25–q75 · line: q50 · whiskers: q10–q90 (area-weighted)", fontsize="medium")
+def y_axis(ax, ylabel):
+    """Vertical axis, linear from 0."""
+    ax.set_ylabel(ylabel)
+    ax.set_ylim(bottom=0)
 
 
 def cell(scenario, k):
@@ -406,30 +361,6 @@ def plot_core(core):
     plt.close(fig)
 
 
-def plot3():
-    """plot3_error_k_ratio.png: boxes of E grouped by k, one per scenario of CORE."""
-    s = pd.concat([all_subsets(sc).assign(r=r) for sc, r in CORE])
-    s = s[s["error"].notna()]
-    ks = sorted(s["k"].unique())
-    fig, ax = plt.subplots(figsize=(9, 4.8), layout="constrained")
-    for j, ((sc, r), color) in enumerate(zip(CORE, OKABE_ITO)):
-        x = np.array(ks) + 0.27 * (j - (len(CORE) - 1) / 2)
-        boxes(ax, x, x - 0.11, x + 0.11, s[s["r"] == r].groupby("k"), "error", color=color, label=f"r = {r:g}")
-    rho_k = spearmanr(s["error"], s["k"]).statistic
-    rho_r = spearmanr(s["error"], s["r"]).statistic
-    ax.grid(alpha=0.3)
-    ax.set_xticks(ks)
-    ax.set_xlabel("maps used, k")
-    y_axis(ax, YLABEL["error"], log=True)
-    fig.legend(*ax.get_legend_handles_labels(), loc="outside right center", frameon=False)
-    boxes_note(fig)
-    fig.suptitle(f"painted mean speed, constant r, LAT noise σ = {CORE_NOISE:g} ms, all map subsets: "
-                 f"log-Euclidean error E by k and by r\n"
-                 f"Spearman's ρ(E, k) = {rho_k:.2f}, ρ(E, r) = {rho_r:.2f} (estimable faces, unweighted)")
-    fig.savefig(FIG / "plot3_error_k_ratio.png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
-
-
 def plot4(comparison, name, labels):
     """FIG/NAME_{area,error}.png: per-face vs Roney, one point per triplet and scenario of labels,
     {scenario: legend label}, one color and marker per scenario in the order of labels."""
@@ -486,7 +417,6 @@ def main():
 
     plot_grid(grid)
     plot_core(core)
-    plot3()
     plot4(comparison, "plot4_roney_noise", {sc: f"σ = {n:g} ms" for sc, n in GRID})
 
 

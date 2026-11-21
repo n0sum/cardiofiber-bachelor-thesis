@@ -91,9 +91,11 @@ Then from the root, with the `cardiofiber` environment active:
 The script builds `estimator/` in `estimator/build/`, writes the ground truths
 with `make_truth.py` and simulates the six LAT maps with `Simulate` (one pacing
 site per row of `simulator/stage1/pacing_sites.csv`). It then deletes
-`output/` and runs the per-face estimator on all 42 subsets of at least 3 maps
-of every scenario, and Roney's method on the 20 triplets of the scenarios of
-the grid only (the core sample in anisotropy is per-face only). The two estimators read only the LAT maps; the errors are computed
+`output/` and runs the per-face estimator on the scenarios of the grid on all
+42 subsets of at least 3 maps, on those of the core sample in anisotropy only
+on the 15 subsets with k = 4 maps (`CORE_K`), and Roney's method on the 20
+triplets of the scenarios of the grid only (the core sample is per-face only).
+The two estimators read only the LAT maps; the errors are computed
 afterwards by `analysis/analysis.py`, against the ground truth.
 
 All the experiments are on the AugmentA fibers and the painted mean speed μ.

@@ -17,6 +17,8 @@ RATIOS="1.2 2 2.8"
 NOISES="0.05 0.1 0.3"
 # the noise of the core sample in anisotropy: scenarios painted_rR_noiseCORE_NOISE
 CORE_NOISE=0.05
+# the number of maps of the core sample: only the subsets with CORE_K maps; equal to CORE_K in analysis.py
+CORE_K=4
 
 TRUTHS="painted"
 for r in $RATIOS; do TRUTHS="$TRUTHS painted_r$r"; done
@@ -24,9 +26,11 @@ for r in $RATIOS; do TRUTHS="$TRUTHS painted_r$r"; done
 # the scenarios of the grid (painted, then painted_noiseN): per-face estimator and Roney
 GRID_SCENARIOS="painted"
 for n in $NOISES; do GRID_SCENARIOS="$GRID_SCENARIOS painted_noise$n"; done
-# all the scenarios of the per-face estimator: the grid, then the core sample (per-face only)
-ALL_SCENARIOS="$GRID_SCENARIOS"
-for r in $RATIOS; do ALL_SCENARIOS="$ALL_SCENARIOS painted_r${r}_noise$CORE_NOISE"; done
+# the scenarios of the core sample in anisotropy (painted_rR_noiseCORE_NOISE): per-face only, k = CORE_K
+CORE_SCENARIOS=""
+for r in $RATIOS; do CORE_SCENARIOS="$CORE_SCENARIOS painted_r${r}_noise$CORE_NOISE"; done
+# all the scenarios of the per-face estimator: the grid, then the core sample
+ALL_SCENARIOS="$GRID_SCENARIOS$CORE_SCENARIOS"
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
 cmake --build estimator/build
@@ -50,10 +54,14 @@ for r in $RATIOS; do noisy painted_r$r painted_r${r}_noise$CORE_NOISE $CORE_NOIS
 
 rm -rf output                                     # no old results in the figures
 
-# for each scenario all subsets of at least 3 maps with the per-face estimator; on the scenarios
-# of the grid only, all triplets with method 2 of Roney et al. 2019; the estimators read only lat.ply
-for s in $ALL_SCENARIOS; do
-    python experiments/subsets.py $s              # -> output/$s/confs/*.conf
+# per-face estimator: on the scenarios of the grid all subsets of at least 3 maps (42), on those
+# of the core sample only the subsets with CORE_K maps (15); on the scenarios of the grid only,
+# all triplets with method 2 of Roney et al. 2019; the estimators read only lat.ply
+for s in $GRID_SCENARIOS; do
+    python experiments/subsets.py $s              # -> output/$s/confs/*.conf, 42
+done
+for s in $CORE_SCENARIOS; do
+    python experiments/subsets.py $s $CORE_K      # -> output/$s/confs/*.conf, 15
 done
 for s in $ALL_SCENARIOS; do
     ./estimator/build/Estimate output/$s/confs/*.conf   # -> output/$s/per_face/sub_*/estimate.{ply,csv}

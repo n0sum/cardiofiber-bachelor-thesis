@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 Generates one .conf for each subset of k >= 3 LAT maps of a scenario
-(with six maps 20 + 15 + 6 + 1 = 42). The number of maps is the number of
+(with six maps 20 + 15 + 6 + 1 = 42) or, with K, for each subset of exactly
+K maps (with six maps and K = 4, 15). The number of maps is the number of
 rows of pacing_sites.csv (row k is map k).
 
 Each subset is named sub_ + indices joined by hyphens (e.g. sub_0-2-4): the name of
 its .conf and of its output folder.
 
 Usage, from the repository root:
-    python experiments/subsets.py SCENARIO
+    python experiments/subsets.py SCENARIO [K]
 Reads data/reference/SCENARIO/lat.ply. The .conf files go to
 output/SCENARIO/confs/, the outputs of Estimate to
 output/SCENARIO/per_face/sub_.../estimate.{ply,csv}; the folder of each output is
@@ -44,7 +45,8 @@ def main():
     scenario = sys.argv[1]
     out_dir = f"output/{scenario}"
     maps = range(len(list(csv.DictReader(open(SITES)))))
-    for k in range(MIN_MAPS, len(maps) + 1):
+    ks = [int(sys.argv[2])] if len(sys.argv) > 2 else range(MIN_MAPS, len(maps) + 1)   # K: only k = K
+    for k in ks:
         for subset in itertools.combinations(maps, k):
             sub_name = "sub_" + "-".join(map(str, subset))
             write_conf(ROOT / out_dir / "confs" / f"{sub_name}.conf", scenario,
