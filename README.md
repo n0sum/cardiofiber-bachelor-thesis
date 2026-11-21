@@ -165,6 +165,12 @@ face, the log-Euclidean distance between the estimated and the true velocity
 tensor M = CV_L² f fᵀ + CV_T² t tᵀ (Arsigny et al. 2006),
 ‖log M̂ − log M‖_F: dimensionless; with exact fiber and anisotropy, a relative
 error ε on both speeds gives about 2√2 ε (0.05 ≈ 1.8% on the speeds); its statistics are area-weighted over the estimable faces.
+In the core sample in anisotropy, where r changes and E weights the fiber
+with ln r, `core.csv` and `plot_core.png` use instead three errors that
+separate the fiber from the speeds: the angle between estimated and true
+fiber (degrees, unoriented), the relative error on the mean speed
+v = √(CV_L·CV_T) = e^μ, 100 (v̂ − v)/v, and on the anisotropy ratio
+r = CV_L/CV_T = e^(2α), 100 (r̂ − r)/r; in absolute value.
 Figures and columns are described in `experiments/README.md`.
 
 ## Units and formats

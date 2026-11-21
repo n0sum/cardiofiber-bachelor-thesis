@@ -34,6 +34,12 @@ Dimensionless; with exact fiber and anisotropy, a relative error eps on both
 speeds gives error ~ 2 sqrt 2 eps (0.05 ~ 1.8% on the speeds). With alpha = 0 (isotropic tissue) the fiber does not enter the error; it
 does not depend on the unit of the speeds (mu shifts by a constant); it is the
 same for speeds or slownesses (log M^-1 = -log M).
+Three more errors per estimable face, for the core sample, where r changes and E
+weights the fiber with ln r; they separate the fiber from the speeds:
+  angle      = degrees of arccos(min(1, |f_est . f_true|)), angle between estimated
+               and true fiber, unoriented
+  mean_speed = 100 (v_est - v) / v, v = sqrt(CV_L CV_T) = e^mu the mean speed, %
+  ratio      = 100 (r_est - r) / r, r = CV_L / CV_T = e^(2 alpha) the anisotropy ratio, %
 AREA-WEIGHTED statistics: q50, q90 and q99 (the values below which 50, 90, 99%
 of the area lies). cond = sigma_max / sigma_min of the system of a face
 (per-face estimator only, from estimate.csv): only in per_face.csv, no figure
@@ -53,13 +59,14 @@ singular); empty on the per-face rows. The rows with sub = pooled gather the
 paired faces of the 20 triplets of the scenario; their areas are the means over
 the triplets.
 
-grid.csv, one row per (sigma, k) of the scenarios of GRID; core.csv, one row per
-scenario of CORE at k = CORE_K (r in place of noise_ms). The cell of (scenario, k),
-cell(): all the subsets with k maps (20 triplets, 15 quadruplets, 6 quintuplets,
-1 sextuplet) concatenated, each face once per subset; subsets = their number;
-error_mean = sum area E / sum area and error_q50/q90/q99 area-weighted, on the
-estimable rows; non_estimable_area_% = area of the non-estimable rows / area of
-all the rows (the mean over the subsets of the non-estimable area of each).
+grid.csv, one row per (sigma, k) of the scenarios of GRID, with E; core.csv, one row
+per scenario of CORE at k = CORE_K (r in place of noise_ms), with angle, mean_speed and
+ratio (CORE_ERRORS) instead of E. The cell of (scenario, k), cell(): all the subsets
+with k maps (20 triplets, 15 quadruplets, 6 quintuplets, 1 sextuplet) concatenated,
+each face once per subset; subsets = their number; for each error X, X_mean =
+sum area |X| / sum area and X_q50/q90/q99 of |X| area-weighted, on the estimable
+rows; non_estimable_area_% = area of the non-estimable rows / area of all the rows
+(the mean over the subsets of the non-estimable area of each).
 
 Figures:
   plot_grid.png        the cells of grid.csv as a 4 x 4 colored table: k = 3..6 on
@@ -67,8 +74,16 @@ Figures:
                        vertical axis as categories (equispaced, sigma = 0 at the
                        bottom); color error_mean, sequential, log scale; in each
                        cell error_mean, error_q99 and the non-estimable area
-  plot_core.png        the rows of core.csv as a function of r: left error_mean
-                       and error_q99, right the non-estimable area
+  plot_core.png        the rows of core.csv as a function of r, 2 x 2 panels: angle,
+                       |mean_speed|, |ratio| (mean and q99 each) and the
+                       non-estimable area
+  plot_triplets_area.png
+                       per-face, the 20 triplets of each scenario of GRID: estimable
+                       area (100 - non_estimable_area_% of per_face.csv) by sigma,
+                       sigma as equispaced categories; one point per triplet and
+                       level, the points of a triplet joined by a thin gray line,
+                       staggered horizontally by an offset that depends only on
+                       the triplet
   plot4_roney_noise_{area,error}.png
                        per-face vs Roney, one point per triplet and scenario of
                        GRID (80 points, one color and marker per sigma). _area:
@@ -107,7 +122,8 @@ CORE = [("painted_r1.2_noise0.05", 1.2), ("painted_r2_noise0.05", 2.0),
 CORE_K = 4                                                # maps of the core sample: equal to CORE_K in run_all.sh
 CORE_NOISE = 0.05                                         # sigma (ms) of the scenarios of CORE
 SCENARIOS = [sc for sc, _ in GRID] + [sc for sc, _ in CORE]   # per_face.csv: the order of run_all.sh
-ERRORS = ("error",)
+ERRORS = ("error",)                                       # grid.csv, per_face.csv, comparison.csv
+CORE_ERRORS = ("angle", "mean_speed", "ratio")            # core.csv
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
           "error": "log-Euclidean error ‖log M̂ − log M‖"}
@@ -146,8 +162,9 @@ def truth(scenario):
 
 def load(scenario, method, sub):
     """One run, output/SCENARIO/METHOD/SUB/estimate.{ply,csv}, against the ground truth: DataFrame
-    indexed by face_id with area, estimable, cond (per-face) or k_used (Roney) and the log-Euclidean
-    error, NaN on the non-estimable faces. The only place with the formula of the error."""
+    indexed by face_id with area, estimable, cond (per-face) or k_used (Roney), the log-Euclidean
+    error and angle, mean_speed, ratio (degrees, %, %), NaN on the non-estimable faces. The only
+    place with the formulas of the errors."""
     area, (f_true, mu_true, alpha_true) = truth(scenario)
     case = OUT / scenario / method / sub
     face = read_ply(case / "estimate.ply")["face"]
@@ -161,6 +178,9 @@ def load(scenario, method, sub):
     # np.maximum: by rounding the radicand can be -1e-17
     df["error"] = 2 * np.sqrt(2) * np.sqrt(np.maximum(0, (mu - mu_true) ** 2 + alpha ** 2 + alpha_true ** 2
                                                       - 2 * alpha * alpha_true * (2 * c ** 2 - 1)))
+    df["angle"] = np.degrees(np.arccos(np.minimum(1, c)))  # |a.b|: angle between directions, unoriented
+    df["mean_speed"] = 100 * (np.exp(mu) - np.exp(mu_true)) / np.exp(mu_true)           # v = e^mu
+    df["ratio"] = 100 * (np.exp(2 * alpha) - np.exp(2 * alpha_true)) / np.exp(2 * alpha_true)   # r = e^(2 alpha)
     return df
 
 
@@ -286,15 +306,21 @@ def y_axis(ax, ylabel):
     ax.set_ylim(bottom=0)
 
 
-def cell(scenario, k):
+def cell(scenario, k, errors=ERRORS):
     """A cell of grid.csv and core.csv: all the per-face subsets with k maps of the scenario
-    concatenated, each face once per subset. Mean and quantiles of E area-weighted on the estimable
-    rows; the non-estimable area over all the rows, i.e. the mean over the subsets (same total area)."""
+    concatenated, each face once per subset. For each error of errors, mean and quantiles of its
+    absolute value area-weighted on the estimable rows; the non-estimable area over all the rows,
+    i.e. the mean over the subsets (same total area)."""
     d = all_subsets(scenario)
     d = d[d["k"] == k]
     est = d[d["estimable"]]
-    return {"k": k, "subsets": d["sub"].nunique(), "non_estimable_area_%": non_estimable(d),
-            "error_mean": (est["area"] * est["error"]).sum() / est["area"].sum(), **quantiles(d)}
+    w = est["area"]
+    out = {"k": k, "subsets": d["sub"].nunique(), "non_estimable_area_%": non_estimable(d)}
+    for e in errors:
+        a = est[e].abs()
+        out[f"{e}_mean"] = (w * a).sum() / w.sum()
+        out.update({f"{e}_q{q}": wquantile(a, w, q / 100) for q in QUANTILES})
+    return out
 
 
 def plot_grid(grid):
@@ -338,26 +364,54 @@ def plot_grid(grid):
 
 
 def plot_core(core):
-    """plot_core.png: the rows of core.csv as a function of r, error left, non-estimable area right."""
+    """plot_core.png: the rows of core.csv as a function of r, 2 x 2 panels: the three errors (mean and
+    q99) and the non-estimable area."""
     rs = core["r"].to_numpy()
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), layout="constrained")
-    ax = axes[0]
-    ax.plot(rs, core["error_mean"], color="#0072B2", marker="o", ms=6, lw=1.5, label="mean")
-    ax.plot(rs, core["error_q99"], color="#D55E00", marker="s", ms=6, lw=1.5, ls="--", label="q99")
-    ax.legend(frameon=False)
-    y_axis(ax, YLABEL["error"])
-    ax.set_title("error on the estimable faces, area-weighted")
-    ax = axes[1]
+    fig, axes = plt.subplots(2, 2, figsize=(10.5, 8), layout="constrained")
+    for ax, (e, title, ylabel) in zip(axes.flat, (
+            ("angle", "fiber angle", "angle between estimated and true fiber [°]"),
+            ("mean_speed", "mean speed", "relative error |v̂ − v| / v [%]"),
+            ("ratio", "anisotropy ratio", "relative error |r̂ − r| / r [%]"))):
+        ax.plot(rs, core[f"{e}_mean"], color="#0072B2", marker="o", ms=6, lw=1.5, label="mean")
+        ax.plot(rs, core[f"{e}_q99"], color="#D55E00", marker="s", ms=6, lw=1.5, ls="--", label="q99")
+        y_axis(ax, ylabel)
+        ax.set_title(title)
+    ax = axes[1, 1]
     ax.plot(rs, core["non_estimable_area_%"], color="#000000", marker="o", ms=6, lw=1.5)
     y_axis(ax, YLABEL["area"])
     ax.set_title("non-estimable area")
-    for ax in axes:
+    for ax in axes.flat:
         ax.grid(alpha=0.3)
         ax.set_xticks(rs, [f"{r:g}" for r in rs])
         ax.set_xlabel("r = CV_L / CV_T")
+    fig.legend(*axes[0, 0].get_legend_handles_labels(), loc="outside lower center", ncol=2, frameon=False,
+               title="on the estimable faces of all the subsets, area-weighted")
     n = int(core["subsets"].iloc[0])
     fig.suptitle(f"painted mean speed, constant r, k = {CORE_K} ({n} subsets), LAT noise σ = {CORE_NOISE:g} ms")
     fig.savefig(FIG / "plot_core.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_triplets_area(per_face_table):
+    """plot_triplets_area.png: per-face, estimable area of each triplet by sigma, the scenarios of GRID."""
+    t = per_face_table[(per_face_table["k"] == 3) & per_face_table["scenario"].isin(dict(GRID))]
+    triplets = sorted(t["sub"].unique())
+    offset = {sub: 0.36 * (j - (len(triplets) - 1) / 2) / len(triplets) for j, sub in enumerate(triplets)}
+    level = {sc: i for i, (sc, _) in enumerate(GRID)}
+    t = t.assign(x=t["scenario"].map(level) + t["sub"].map(offset), estimable=100 - t["non_estimable_area_%"])
+    fig, ax = plt.subplots(figsize=(8, 5.2), layout="constrained")
+    for sub, g in t.groupby("sub"):
+        g = g.sort_values("x")
+        ax.plot(g["x"], g["estimable"], color="#999999", lw=0.7, zorder=2)
+    ax.scatter(t["x"], t["estimable"], s=18, color="#0072B2", zorder=3)
+    ax.grid(alpha=0.3)
+    ax.set_xticks(range(len(GRID)), [f"{n:g}" for _, n in GRID])
+    ax.set_xlabel("LAT noise σ [ms]")
+    ax.set_ylabel("estimable area [%]")
+    ax.set_ylim(0, 100)
+    fig.suptitle(f"painted, per-face, map triplets: estimable area by LAT noise (one line per triplet, "
+                 f"{len(triplets)} triplets)")
+    fig.savefig(FIG / "plot_triplets_area.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -410,13 +464,15 @@ def main():
 
     ks = sorted(per_face_table["k"].unique())
     grid = pd.DataFrame([{"scenario": sc, "noise_ms": n, **cell(sc, k)} for sc, n in GRID for k in ks])
-    core = pd.DataFrame([{"scenario": sc, "r": r, **cell(sc, CORE_K)} for sc, r in CORE])
-    cols = ["k", "subsets", "non_estimable_area_%", "error_mean", "error_q50", "error_q90", "error_q99"]
-    grid[["scenario", "noise_ms", *cols]].to_csv(FIG / "grid.csv", index=False, float_format="%.6g")
-    core[["scenario", "r", *cols]].to_csv(FIG / "core.csv", index=False, float_format="%.6g")
+    core = pd.DataFrame([{"scenario": sc, "r": r, **cell(sc, CORE_K, CORE_ERRORS)} for sc, r in CORE])
+    cols = ["k", "subsets", "non_estimable_area_%"]
+    stats = lambda errors: [f"{e}_{s}" for e in errors for s in ("mean", *(f"q{q}" for q in QUANTILES))]
+    grid[["scenario", "noise_ms", *cols, *stats(ERRORS)]].to_csv(FIG / "grid.csv", index=False, float_format="%.6g")
+    core[["scenario", "r", *cols, *stats(CORE_ERRORS)]].to_csv(FIG / "core.csv", index=False, float_format="%.6g")
 
     plot_grid(grid)
     plot_core(core)
+    plot_triplets_area(per_face_table)
     plot4(comparison, "plot4_roney_noise", {sc: f"σ = {n:g} ms" for sc, n in GRID})
 
 

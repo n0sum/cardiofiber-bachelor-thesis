@@ -232,6 +232,7 @@ scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
 | `estimable` | μ of the estimate finite |
 | `cond` / `k_used` | from `estimate.csv` |
 | `error`     | log-Euclidean distance between estimated and true tensor, below |
+| `angle`, `mean_speed`, `ratio` | the three errors of the core sample, below |
 
 The tensor of a face is M = CV_L² f fᵀ + CV_T² t tᵀ (f fiber, t transverse
 direction in the plane of the face). Its matrix logarithm has the same
@@ -251,7 +252,17 @@ with exact fiber and anisotropy, a relative error ε on both speeds gives about
 of the speeds (μ shifts by a constant); it is the same for speeds or
 slownesses (log M⁻¹ = −log M).
 
-The error is NaN on the non-estimable faces. Statistics are area-weighted:
+For the core sample, where r changes and E weights the fiber with ln r,
+`load()` also gives three errors that separate the fiber from the speeds, with
+v = √(CV_L·CV_T) = e^μ the mean speed and r = CV_L/CV_T = e^(2α):
+
+| column       | meaning |
+|--------------|---------|
+| `angle`      | angle between estimated and true fiber, degrees of arccos(min(1, \|f̂·f\|)), unoriented |
+| `mean_speed` | 100 · (v̂ − v) / v, % |
+| `ratio`      | 100 · (r̂ − r) / r, % |
+
+The errors are NaN on the non-estimable faces. Statistics are area-weighted:
 q50, q90 and q99 (`error_q50/q90/q99` in the tables) are the values below
 which 50, 90 and 99% of the area lies.
 
@@ -270,14 +281,17 @@ which 50, 90 and 99% of the area lies.
 - `grid.csv`: one row per (σ, k) of the scenarios of `GRID`, columns
   `scenario, noise_ms, k, subsets, non_estimable_area_%, error_mean,
   error_q50, error_q90, error_q99`.
-- `core.csv`: one row per scenario of `CORE`, at k = `CORE_K`, the same
-  columns with `r` in place of `noise_ms`.
+- `core.csv`: one row per scenario of `CORE`, at k = `CORE_K`, columns
+  `scenario, r, k, subsets, non_estimable_area_%` and, for each of `angle`,
+  `mean_speed` and `ratio`, `_mean`, `_q50`, `_q90`, `_q99` of the absolute
+  value (e.g. `angle_mean`, `mean_speed_q99`, `ratio_q50`). No E.
 
 A cell (scenario, k) of `grid.csv` and `core.csv` (`cell()`) takes all the
 subsets with k maps of the scenario (20 triplets, 15 quadruplets, 6
 quintuplets, 1 sextuplet) and concatenates their DataFrames from `load()`:
-each face appears once per subset. `error_mean` = Σ area·E / Σ area and
-`error_q50/q90/q99` (area-weighted quantiles) are on the estimable rows;
+each face appears once per subset. For each error X (E in `grid.csv`; angle,
+mean speed and ratio in `core.csv`) `X_mean` = Σ area·|X| / Σ area and
+`X_q50/q90/q99` (area-weighted quantiles of |X|) are on the estimable rows;
 `non_estimable_area_%` = area of the non-estimable rows / area of all the
 rows × 100, i.e. the mean over the subsets of the non-estimable area of each;
 `subsets` = number of subsets of the cell. The cond (`cond_q50/q90/q99` of
@@ -286,7 +300,8 @@ rows × 100, i.e. the mean over the subsets of the non-estimable area of each;
 | file | content |
 |------|---------|
 | `plot_grid.png` | the grid: a 4 × 4 colored table, k = 3…6 on the horizontal axis, σ = 0, 0.05, 0.1, 0.3 ms on the vertical axis as equispaced categories (σ = 0 at the bottom). In each cell `mean` (`error_mean`), `q99` (`error_q99`) and `n.e.` (`non_estimable_area_%`); its color is `error_mean`, sequential colormap, log scale, with the color bar |
-| `plot_core.png` | the core sample, as a function of r (1.2, 2, 2.8), k = 4 (15 subsets), σ = 0.05 ms: left `error_mean` and `error_q99`, right the non-estimable area |
+| `plot_core.png` | the core sample, as a function of r (1.2, 2, 2.8), k = 4 (15 subsets), σ = 0.05 ms, 2 × 2 panels: fiber angle [°], relative error on the mean speed \|v̂ − v\|/v [%], relative error on the ratio \|r̂ − r\|/r [%], each with mean (solid) and q99 (dashed), and the non-estimable area |
+| `plot_triplets_area.png` | per-face, the 20 triplets of each scenario of `GRID`: estimable area (100 − `non_estimable_area_%` of `per_face.csv`, k = 3) as a function of σ, as equispaced categories (0, 0.05, 0.1, 0.3 ms), linear up to 100%; one point per triplet and level, the points of a triplet joined by a thin gray line, staggered horizontally by an offset that depends only on the triplet |
 | `plot4_roney_noise_*` | per-face vs Roney, one point per triplet and scenario of `GRID`, 80 points, one Okabe-Ito color and one marker per σ (`σ = 0 ms`, `σ = 0.05 ms`, …) |
 
 Plot 4 is two PNGs: `_area`, the non-estimable area of each
