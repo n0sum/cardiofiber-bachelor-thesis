@@ -59,6 +59,7 @@ SOFTWARE.
 #include <type_traits>
 #include <vector>
 #include <climits>
+#include <cstdint>
 #include <cstdlib>
 
 // General namespace wrapping all Happly things.

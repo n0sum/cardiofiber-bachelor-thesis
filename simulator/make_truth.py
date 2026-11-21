@@ -14,7 +14,6 @@ fibers without errors. The faces keep the order of the .elem but are flipped,
 place in the pipeline where faces are flipped.
 
 Scenarios:
-    uniform   CV_L = 1.05, CV_T = 0.525 mm/ms on every face
     painted   alpha and mu painted by hand in MeshLab, in grayscale, on the
               AugmentA mesh with flipped faces: simulator/painted_alpha.ply and
               simulator/painted_mu.ply. Only their per-vertex colors are read,
@@ -23,14 +22,15 @@ Scenarios:
                 alpha = 1/2 ln 1.6 + g (1/2 ln 2.4 - 1/2 ln 1.6)   r from 1.6 to 2.4
                 mu    = -0.6 + 0.6 g                               e^mu from 0.55 to 1.0 mm/ms
               Per face the mean of the values of its three vertices.
-    r1.6, r2.4
-              the sweep in r: mu of uniform, constant, and alpha = 1/2 ln r
-              constant, with r = 1.6 and 2.4; r = 2 is uniform itself. Same
-              fibers and mu as uniform: only the flattening of the ellipse
-              changes.
+    painted_r1.2, painted_r2, painted_r2.8
+              mu of painted (the same function, the same value on every face)
+              and alpha = 1/2 ln r constant on every face, with r = CV_L / CV_T
+              = 1.2, 2, 2.8. r is constant on purpose: a varying r would mix
+              with the position on the mesh. Same fibers and mu as painted:
+              only the flattening of the ellipse changes.
 
 Usage, from the repository root:
-    python simulator/make_truth.py SCENARIO     # uniform, painted, r1.6, r2.4
+    python simulator/make_truth.py SCENARIO     # painted, painted_r1.2, painted_r2, painted_r2.8
 """
 
 import sys
@@ -42,9 +42,8 @@ import numpy as np
 ROOT     = Path(__file__).resolve().parents[1]                    # repository root
 AUGMENTA = ROOT / "data" / "augmenta" / "LA_endo_with_fiber"      # without extension
 PAINTED  = ROOT / "simulator"                                     # painted_alpha.ply, painted_mu.ply
-MU_UNIFORM = (np.log(1.05) + np.log(0.525)) / 2                    # mu of uniform, also of the sweep in r
-SWEEP_ALPHA = {"r1.6": np.log(1.6) / 2, "r2.4": np.log(2.4) / 2}   # alpha = 1/2 ln r
-SCENARIOS = ("uniform", "painted", *SWEEP_ALPHA)
+CONSTANT_R = {"painted_r1.2": 1.2, "painted_r2": 2.0, "painted_r2.8": 2.8}   # mu of painted, alpha = 1/2 ln r
+SCENARIOS = ("painted", *CONSTANT_R)
 
 COMMENT = "mu = (ln CV_L + ln CV_T) / 2, alpha = (ln CV_L - ln CV_T) / 2, CV in mm/ms, natural log"
 
@@ -97,16 +96,9 @@ def main():
     tri = tri[:, [0, 2, 1]]                                          # AugmentA normals point inwards
     fib = fib / np.linalg.norm(fib, axis=1)[:, None]
 
-    if scenario == "uniform":
-        cv_l = np.full(len(tri), 1.05)                               # mm/ms
-        cv_t = np.full(len(tri), 0.525)
-        mu = (np.log(cv_l) + np.log(cv_t)) / 2
-        alpha = (np.log(cv_l) - np.log(cv_t)) / 2
-    elif scenario == "painted":
-        mu, alpha = painted(tri)
-    else:
-        mu = np.full(len(tri), MU_UNIFORM)
-        alpha = np.full(len(tri), SWEEP_ALPHA[scenario])
+    mu, alpha = painted(tri)
+    if scenario in CONSTANT_R:
+        alpha = np.full(len(tri), np.log(CONSTANT_R[scenario]) / 2)  # mu of painted, constant r
 
     vertex = np.rec.fromarrays([pts[:, 0], pts[:, 1], pts[:, 2]],
                                dtype=[("x", "<f8"), ("y", "<f8"), ("z", "<f8")])

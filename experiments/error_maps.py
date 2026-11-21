@@ -9,17 +9,16 @@ non-estimable faces. Then creates the folder of the case,
 CASEDIR = output/mesh/METHOD_SCENARIO_SUB, and prints a line
 "MESH NUMBERS CASEDIR": MESH is data/reference/SCENARIO/lat.ply, NUMBERS the
 error_maps.txt. run_all.sh passes them to ErrorMaps with OUT CASEDIR/error.ply,
-which writes the error as the quality of the faces. The cases:
-    per-face, all maps, on each scenario of SCENARIOS_ALL_MAPS
-    per-face and Roney on the triplet of SCENARIO_TRIPLET with the largest
-    paired area: faces estimable by both methods, area-weighted
-
-With NOISE (e.g. 0.1, NOISES in run_all.sh) the same cases on the scenarios
-SCENARIO_noiseNOISE: SCENARIO in the paths and in CASEDIR has the suffix, e.g.
-output/mesh/per_face_painted_noise0.1_sub_0-1-2-3-4-5/.
+which writes the error as the quality of the faces. The cases, for each
+scenario of GRID (painted at every LAT noise level, from analysis.py):
+    per-face, all maps
+    per-face and Roney on one triplet, the same at every level so that in
+    MeshLab the noise levels compare on the same maps: the triplet with the
+    largest paired area (faces estimable by both methods, area-weighted) on
+    painted without noise, the first scenario of GRID
 
 Usage, from the repository root:
-    python experiments/error_maps.py [NOISE] | while read -r mesh numbers case_dir; do
+    python experiments/error_maps.py | while read -r mesh numbers case_dir; do
         ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error.ply"
     done
 """
@@ -29,10 +28,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]                # repository root
 sys.path.insert(0, str(ROOT / "analysis"))
-from analysis import load, subs                           # the errors of a run
-
-SCENARIOS_ALL_MAPS = ["uniform", "painted"]
-SCENARIO_TRIPLET = "painted"
+from analysis import GRID, load, subs                     # the errors of a run, the scenarios
 
 
 def line(method, scenario, sub, df):
@@ -48,23 +44,20 @@ def line(method, scenario, sub, df):
     print(f"data/reference/{scenario}/lat.ply {case}/error_maps.txt {case_dir}")
 
 
+def paired_area(scenario, sub):
+    """Area (mm^2) of the faces estimable by both methods with the triplet sub."""
+    per_face, roney = load(scenario, "per_face", sub), load(scenario, "roney", sub)
+    return roney["area"][roney["estimable"] & per_face["estimable"]].sum()
+
+
 def main():
-    suffix = f"_noise{sys.argv[1]}" if len(sys.argv) > 1 else ""   # NOISE: the scenarios SCENARIO_noiseNOISE
-    for scenario in SCENARIOS_ALL_MAPS:
-        scenario += suffix
+    clean = GRID[0][0]                                    # painted without noise: chooses the triplet
+    triplet = max(subs(clean, "roney"), key=lambda sub: paired_area(clean, sub))
+    for scenario, _ in GRID:
         sub = subs(scenario, "per_face")[-1]              # all maps
         line("per_face", scenario, sub, load(scenario, "per_face", sub))
-
-    triplet_scenario = SCENARIO_TRIPLET + suffix
-    best = None                                           # (paired area, triplet, per-face, Roney)
-    for sub in subs(triplet_scenario, "roney"):
-        per_face, roney = load(triplet_scenario, "per_face", sub), load(triplet_scenario, "roney", sub)
-        paired = roney["area"][roney["estimable"] & per_face["estimable"]].sum()
-        if best is None or paired > best[0]:
-            best = (paired, sub, per_face, roney)
-    _, sub, per_face, roney = best
-    line("per_face", triplet_scenario, sub, per_face)
-    line("roney", triplet_scenario, sub, roney)
+        line("per_face", scenario, triplet, load(scenario, "per_face", triplet))
+        line("roney", scenario, triplet, load(scenario, "roney", triplet))
 
 
 if __name__ == "__main__":

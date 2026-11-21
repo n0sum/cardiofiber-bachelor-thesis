@@ -11,7 +11,7 @@
 //
 // Usage, from the repository root:
 //   ./estimator/build/Simulate TRUTH.ply SITES.csv LAT.ply SIGMA
-//   ./estimator/build/Simulate data/reference/uniform/truth.ply simulator/stage1/pacing_sites.csv data/reference/uniform/lat.ply 0
+//   ./estimator/build/Simulate data/reference/painted/truth.ply simulator/stage1/pacing_sites.csv data/reference/painted/lat.ply 0
 //
 // TRUTH.ply: format D (per vertex x y z in mm; per face vertex_indices,
 //            fiber fx fy fz, mu, alpha; CV_L = exp(mu + alpha), CV_T = exp(mu - alpha) in mm/ms).

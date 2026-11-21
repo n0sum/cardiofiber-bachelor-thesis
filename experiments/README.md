@@ -1,16 +1,18 @@
 # Experiments
 
-The pipeline, for each scenario (the list `SCENARIOS` in `run_all.sh`, today
-`uniform painted r1.6 r2.4`, in this order):
+The pipeline, for each scenario (`ALL_SCENARIOS` in `run_all.sh`, built from
+`NOISES`, `RATIOS` and `CORE_NOISE` at its top; in this order `painted`,
+`painted_noise0.05`, `painted_noise0.1`, `painted_noise0.3`,
+`painted_r1.2_noise0.05`, `painted_r2_noise0.05`, `painted_r2.8_noise0.05`):
 
 ```
-simulator/make_truth.py SCENARIO         ->  data/reference/SCENARIO/truth.ply   ground truth, format D
+simulator/make_truth.py TRUTH            ->  data/reference/TRUTH/truth.ply      ground truth, format D
 Simulate truth.ply SITES lat.ply SIGMA   ->  data/reference/SCENARIO/lat.ply     six LAT maps
 experiments/subsets.py SCENARIO          ->  output/SCENARIO/confs/sub_….conf
 Estimate output/SCENARIO/confs/*         ->  output/SCENARIO/per_face/sub_…/estimate.{ply,csv}
 estimator/roney.py roney.conf SC..       ->  output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
-analysis/analysis.py [NOISE]             ->  output/figures/ or output/figures_noiseNOISE/
-experiments/error_maps.py [NOISE] + ErrorMaps + FiberView -> output/mesh/
+analysis/analysis.py                     ->  output/figures/
+experiments/error_maps.py + ErrorMaps + FiberView -> output/mesh/
 ```
 
 ## Noise on the LATs
@@ -20,15 +22,18 @@ adds to every vertex (also those of the stimulus sphere) a number drawn from a
 Gaussian with mean 0 and standard deviation SIGMA: additive noise in ms,
 independent per vertex and per map, from one `std::mt19937` with a fixed seed
 (`NOISE_SEED` in `Simulate.cpp`). With SIGMA = 0 nothing is drawn. Since the
-seed is the same, the noise at σ = 0.1 is exactly twice that at σ = 0.05.
+seed is the same for every call, the noise at σ = 0.3 is exactly 6 times that
+at σ = 0.05, and the scenarios of the core sample have the same realization of
+the noise as `painted_noise0.05`.
 
-`run_all.sh` simulates each scenario S of `SCENARIOS` clean (SIGMA = 0) and,
-for each N of `NOISES` (`0.05 0.1`), a scenario `S_noiseN`: the folder
-`data/reference/S_noiseN/` with a copy of `truth.ply` of S and the LATs with
-SIGMA = N. Order: the four clean scenarios, then those at 0.05, then those at
-0.1. The grid (subsets, Estimate, Roney) runs on all 12; `analysis.py` and
-`error_maps.py` run three times, without argument (clean), with `0.05` and with
-`0.1`.
+`run_all.sh` writes the ground truths `painted`, `painted_r1.2`, `painted_r2`
+and `painted_r2.8`, simulates `painted` clean (SIGMA = 0) and then the noisy
+scenarios, each a folder with a copy of a `truth.ply` and the LATs with SIGMA:
+`painted_noiseN` (ground truth of `painted`) for each N of `NOISES`
+(`0.05 0.1 0.3`), and `painted_rR_noise0.05` (ground truth of `painted_rR`,
+SIGMA = `CORE_NOISE`) for each R of `RATIOS` (`1.2 2 2.8`). The folders
+`data/reference/painted_rR/` hold only the ground truth. `analysis.py` and
+`error_maps.py` run once, without arguments.
 
 The two estimators read only `lat.ply` and write their estimate in format D:
 they never see the ground truth. The errors are computed only in the analysis,
@@ -39,10 +44,9 @@ Units: lengths in mm, times in ms, velocities in mm/ms.
 
 ## Scenarios
 
-`simulator/make_truth.py SCENARIO`; all use the AugmentA mesh and fibers and
+`simulator/make_truth.py TRUTH`; all use the AugmentA mesh and fibers and
 differ only in μ and α:
 
-- `uniform`: CV_L = 1.05, CV_T = 0.525 mm/ms on every face (r = 2).
 - `painted`: μ and α painted by hand in MeshLab, in grayscale, in
   `simulator/painted_mu.ply` and `simulator/painted_alpha.ply` (the AugmentA
   mesh with flipped faces). Only the per-vertex colors are read, matched by
@@ -52,10 +56,22 @@ differ only in μ and α:
   2.4 (white), and μ = −0.6 + 0.6 g, e^μ from 0.55 (black) to 1.0 mm/ms
   (white). Per face, the mean of the values (not of the colors) of its three
   vertices.
-- `r1.6`, `r2.4`: the sweep in r. μ of `uniform`, ½ (ln 1.05 + ln 0.525),
-  and α = ½ ln r, both constant on every face, with r = 1.6 and 2.4; r = 2 is
-  `uniform` itself. Same fibers, μ and pacing sites as `uniform`: only the
-  flattening of the ellipse changes.
+- `painted_r1.2`, `painted_r2`, `painted_r2.8`: μ of `painted` (the same
+  function, identical face by face) and α = ½ ln r constant on every face,
+  r = 1.2, 2, 2.8. r is constant on purpose: a varying r would mix with the
+  position on the mesh. Only the flattening of the ellipse changes.
+
+The roles of the seven scenarios in the analysis:
+
+| role | scenario | ground truth | σ (ms) |
+|---|---|---|---|
+| grid | `painted` | `painted` | 0 |
+| grid | `painted_noise0.05` | `painted` | 0.05 |
+| grid | `painted_noise0.1` | `painted` | 0.1 |
+| grid | `painted_noise0.3` | `painted` | 0.3 |
+| core sample | `painted_r1.2_noise0.05` | `painted_r1.2` | 0.05 |
+| core sample | `painted_r2_noise0.05` | `painted_r2` | 0.05 |
+| core sample | `painted_r2.8_noise0.05` | `painted_r2.8` | 0.05 |
 
 ## Format D: conduction field
 
@@ -96,7 +112,7 @@ end_header
 
 Text PLY (`format ascii 1.0`) written by `Simulate`: per vertex `x y z lat_0 … lat_5` (double;
 mm, ms), faces `vertex_indices` as in `truth.ply`. Map k is paced from the face
-in row k of `simulator/stage1/pacing_sites.csv`. In the scenarios `S_noiseN`
+in row k of `simulator/stage1/pacing_sites.csv`. In the noisy scenarios
 the LATs carry the Gaussian noise described above.
 
 ## Estimator `.conf`
@@ -105,7 +121,7 @@ One `.conf` file per experiment of the per-face estimator. `Estimate` takes one
 or more and processes them in sequence:
 
 ```bash
-./estimator/build/Estimate output/uniform/confs/sub_0-1-2.conf output/uniform/confs/sub_0-1-3.conf
+./estimator/build/Estimate output/painted/confs/sub_0-1-2.conf output/painted/confs/sub_0-1-3.conf
 ```
 
 `key = value`, one per line, with spaces around `=` and no spaces in the
@@ -171,46 +187,35 @@ output/
     per_face/sub_…/estimate.csv
     roney/sub_i-j-k/estimate.ply      estimator/roney.py, 20 triplets
     roney/sub_i-j-k/estimate.csv
-  figures/                            analysis/analysis.py, tables and PNGs, clean LATs
-  figures_noise0.05/                  analysis/analysis.py 0.05, the same on the scenarios S_noise0.05
-  figures_noise0.1/                   analysis/analysis.py 0.1, the same on the scenarios S_noise0.1
+  figures/                            analysis/analysis.py, tables and PNGs
   mesh/                               all the PLYs for MeshLab (ErrorMaps, FiberView), below
 ```
 
 In the folders of the error-map cases (`error_maps.py`) there is also
-`error_maps.txt`. `output/mesh/`, with the cases chosen today:
+`error_maps.txt`. `output/mesh/`, for each scenario S of the grid (`painted`,
+`painted_noise0.05`, `painted_noise0.1`, `painted_noise0.3`), with TRIPLET the
+triplet chosen by `error_maps.py` (below), the same for every S:
 
 ```
 output/mesh/
-  per_face_uniform_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
-  per_face_painted_sub_0-1-2-3-4-5/   (the same three)
-  per_face_painted_sub_1-4-5/         (the same three)
-  roney_painted_sub_1-4-5/            (the same three)
-  truth_uniform/                      truth_ratio.ply  truth_fibers.ply
-  truth_painted/                      truth_ratio.ply  truth_fibers.ply
+  per_face_S_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_S_TRIPLET/           (the same three)
+  roney_S_TRIPLET/              (the same three)
+  truth_S/                      truth_ratio.ply  truth_fibers.ply
 ```
-
-and the same for each noise level, with `S_noiseN` in the names
-(`per_face_painted_noise0.1_sub_0-1-2-3-4-5/`, `truth_painted_noise0.1/`, ...;
-the triplet of `painted` with the largest paired area can change with the noise).
 
 `run_all.sh` deletes `output/` before recomputing it, so no old results end up
 in the figures.
 
 ## Analysis
 
-`python analysis/analysis.py`, without arguments, reads the clean scenarios and
-writes to `output/figures/`. `python analysis/analysis.py NOISE` (e.g. `0.1`)
-does the same on the scenarios `S_noiseNOISE`, with the same roles below and
-the same legend labels, adds "LAT noise σ = NOISE ms" to the title of every
-figure and writes to `output/figures_noiseNOISE/` (there plot 1 is
-`plot1_maps_painted_noiseNOISE_*`). NOISE is read only when `analysis.py` runs
-as a script. Lists at its top: `MAIN_SCENARIOS`,
-`["uniform", "painted"]`; `PLOT1_SCENARIOS`, `["painted"]`, for plot 1; and
-`SWEEP`, the scenarios of the sweep in r with their r, in increasing r (`r1.6`,
-`uniform` as r = 2, `r2.4`), for plots 0d, 2 and 3. The tables and plot 4
-contain all the scenarios, in the order of `run_all.sh` (`SCENARIOS`:
-`MAIN_SCENARIOS`, then the rest of `SWEEP`).
+`python analysis/analysis.py`, without arguments, writes everything to
+`output/figures/`. Constants at its top: `GRID`, the scenarios of the grid with
+their σ in ms (`painted` 0, `painted_noise0.05`, `painted_noise0.1`,
+`painted_noise0.3`); `CORE`, the scenarios of the core sample with their r
+(1.2, 2, 2.8); `CORE_K = 4` and `CORE_NOISE = 0.05`, its single condition; and
+`SCENARIOS`, those of `GRID` and then those of `CORE`, in the order of
+`run_all.sh`, for `per_face.csv` and `comparison.csv`.
 
 `load(scenario, method, sub)` reads `data/reference/SCENARIO/truth.ply` (once per
 scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
@@ -256,39 +261,37 @@ which 50, 90 and 99% of the area lies.
   nearly singular); both empty on the per-face rows. The rows with `sub` =
   `pooled` gather the paired faces of the 20 triplets of the scenario; their
   areas are means over the triplets.
-- `cond_k_ratio.csv`: one row per (k, r) on the scenarios of `SWEEP`, all the
-  subsets with that k: `cond_q50`, `cond_q90` (area-weighted, faces with
-  computed cond) and `faces`, the number of such faces (pooled over the
-  subsets). The numbers of plot 3.
+- `grid.csv`: one row per (σ, k) of the scenarios of `GRID`, columns
+  `scenario, noise_ms, k, subsets, non_estimable_area_%, error_mean,
+  error_q50, error_q90, error_q99`.
+- `core.csv`: one row per scenario of `CORE`, at k = `CORE_K`, the same
+  columns with `r` in place of `noise_ms`.
 
-Plot 0 is four PNGs (0a–0d) and plot 3 one; plots 1, 2 and 4 are two PNGs
-each: `_area` (non-estimable area, one panel) and `_error`. In plots 1 and 2
-the latter has a single
-panel with q50, q90 and q99 together (circle, square, triangle, Okabe-Ito
-colors), points only without lines, with the vertical axis on a log scale and
-labels in plain numbers (1, 2, 5, 10...); in plot 4 three panels q50, q90 and
-q99. The other vertical axes, including the `_area` files, are linear and
-start at 0 (in plot 4 also the horizontal one, with the same limits).
+A cell (scenario, k) of `grid.csv` and `core.csv` (`cell()`) takes all the
+subsets with k maps of the scenario (20 triplets, 15 quadruplets, 6
+quintuplets, 1 sextuplet) and concatenates their DataFrames from `load()`:
+each face appears once per subset. `error_mean` = Σ area·E / Σ area and
+`error_q50/q90/q99` (area-weighted quantiles) are on the estimable rows;
+`non_estimable_area_%` = area of the non-estimable rows / area of all the
+rows × 100, i.e. the mean over the subsets of the non-estimable area of each;
+`subsets` = number of subsets of the cell. The cond (`cond_q50/q90/q99` of
+`per_face.csv`, from `estimate.csv`) is in no figure.
 
-Plots 0a, 0b and 0c are only on `uniform` (`SCENARIO_COND` in `analysis.py`):
-cond depends on r, so there it is compared only at equal r. Plots 0d, 2 and 3
-are on the scenarios of `SWEEP`, with all the 42 subsets of each. The boxes
-(0b, 0d, 3) go from q25 to q75, line at q50, whiskers q10–q90, area-weighted.
+| file | content |
+|------|---------|
+| `plot_grid.png` | the grid: a 4 × 4 colored table, k = 3…6 on the horizontal axis, σ = 0, 0.05, 0.1, 0.3 ms on the vertical axis as equispaced categories (σ = 0 at the bottom). In each cell `mean` (`error_mean`), `q99` (`error_q99`) and `n.e.` (`non_estimable_area_%`); its color is `error_mean`, sequential colormap, log scale, with the color bar |
+| `plot_core.png` | the core sample, as a function of r (1.2, 2, 2.8), k = 4 (15 subsets), σ = 0.05 ms: left `error_mean` and `error_q99`, right the non-estimable area |
+| `plot3_error_k_ratio.png` | boxes of the log-Euclidean error E (log) grouped by k = 3…6, in each group one box per scenario of `CORE` (one color per r, legend), on the estimable faces of all the subsets with that k; box q25–q75, line at q50, whiskers q10–q90, area-weighted; in the title Spearman's ρ(E, k) and ρ(E, r) over the same faces, unweighted |
+| `plot4_roney_noise_*` | per-face vs Roney, one point per triplet and scenario of `GRID`, 80 points, one Okabe-Ito color and one marker per σ (`σ = 0 ms`, `σ = 0.05 ms`, …) |
+| `plot4_roney_ratio_*` | the same on the scenarios of `CORE`, 60 points, one color and marker per r (`r = 1.2`, …) |
 
-| file                     | content                                                |
-|--------------------------|--------------------------------------------------------|
-| `plot0_cond_errors.png` (0a) | faces with computed cond of the 42 subsets together, in 10 equal-area cond bins, at the median cond of the bin, two panels side by side. The error: per bin q50, q90 and q99 of the error on its estimable faces (area-weighted), points joined by lines, log on both axes, in the title Spearman's ρ between cond and error (unweighted): cond bounds how large the error can be (q90, q99), not how large it is. The area: the % of area of the bin where the estimate is not an ellipse, i.e. the faces with cond but estimate NaN (smaller eigenvalue ≤ 1e-8 times the larger one); the faces discarded because the smallest singular value is below threshold have no cond and do not appear |
-| `plot0_maps_cond.png` (0b) | one box of cond (log) per k, on the faces with computed cond of all the subsets with k maps |
-| `plot0_cond_area.png` (0c) | one point per subset from `per_face.csv`: cond_q90 (log) on the horizontal axis, non-estimable area on the vertical axis, color and marker by k; in the title Spearman's ρ over the 42 points |
-| `plot0_ratio_cond.png` (0d) | one box of cond (log) per scenario of `SWEEP`, r on the horizontal axis (1.6, 2, 2.4), on the faces with computed cond of all its 42 subsets: the same mix of k in each box, so the boxes compare |
-| `plot1_maps_painted_*`  | `painted` (`PLOT1_SCENARIOS`), as a function of k: one point per subset and quantile, staggered within each k |
-| `plot2_ratio_*`         | per-face only, the scenarios of `SWEEP`, r on the horizontal axis: one point per subset and quantile, the 42 subsets of each r staggered within it, ordered by k |
-| `plot3_cond_k_ratio.png` | does cond depend more on k or on r? Boxes of cond (log) grouped by k = 3…6, in each group one box per scenario of `SWEEP` (one color per r, those of plot 4, legend), on the faces with computed cond of the subsets with that k; in the title Spearman's ρ(cond, k) and ρ(cond, r) over the faces with computed cond of the three scenarios, unweighted. Numbers in `cond_k_ratio.csv` |
-| `plot3_error_k_ratio.png` | the same as `plot3_cond_k_ratio.png` with the log-Euclidean error E (log) in place of cond, on the estimable faces of the subsets with that k; in the title Spearman's ρ(E, k) and ρ(E, r) over the same faces, unweighted |
-| `plot4_roney_*`          | one point per triplet and scenario of `SCENARIOS`, 80 points (one Okabe-Ito color and one marker per scenario, in the order of `run_all.sh`; in the legend `uniform (r = 2)`, `painted`, `r = 1.6`, `r = 2.4`; limits and centroid over all the points): Roney on the horizontal axis, per-face on the vertical axis, with y = x; on the axes only 0, minimum, centroid (mean of all the points, cross) and maximum, with dotted projections and without grid |
-
-Median, minimum and maximum over subsets count each subset once;
-the area weighting applies within each subset.
+Plot 4 is two PNGs per version: `_area`, the non-estimable area of each
+method alone, one panel; `_error`, three panels q50, q90 and q99 on the paired
+faces, each with its own scale. Roney on the horizontal axis and per-face on
+the vertical axis, both linear from 0 with the same limits, with y = x; limits
+and centroid over all the points of the version; on the axes only 0, minimum,
+centroid (mean of all the points, cross) and maximum, with dotted projections
+and without grid.
 
 ## Error PLYs
 
@@ -344,15 +347,13 @@ its `estimate.ply`, creates the folder of the case
 `MESH NUMBERS CASEDIR`; `run_all.sh` calls `ErrorMaps MESH NUMBERS CASEDIR/error.ply`.
 The cases:
 
-1. per-face, all maps, on each scenario of `SCENARIOS_ALL_MAPS` (`uniform`
-   and `painted`);
-2. per-face and Roney on the triplet of `SCENARIO_TRIPLET` (`painted`) with
-   the largest paired area (faces estimable by both methods, area-weighted,
-   areas from `load()`).
+For each scenario of `GRID` (imported from `analysis.py`):
 
-The scenarios are constants at the top of `error_maps.py`. With an argument
-NOISE, `error_maps.py NOISE` takes the same cases on the scenarios
-`S_noiseNOISE`.
+1. per-face, all maps;
+2. per-face and Roney on a single triplet, the same at every noise level, so
+   that in MeshLab the levels compare on the same maps: the triplet with the
+   largest paired area (faces estimable by both methods, area-weighted, areas
+   from `load()`) on `painted` without noise.
 
 ## Conduction fields for MeshLab
 
@@ -364,8 +365,8 @@ CV_L); faces with NaN are left out.
 `run_all.sh` calls it for the cases of the error maps (`error_maps.py`): for
 each one on the estimate, writing `CASEDIR/estimate_{ratio,fibers}.ply`,
 and on the ground truth of its scenario, writing
-`output/mesh/truth_SCENARIO/truth_{ratio,fibers}.ply` (today `uniform` and
-`painted`; for `painted` the same files are written once per case).
+`output/mesh/truth_SCENARIO/truth_{ratio,fibers}.ply` (the four scenarios of
+the grid; the same files are written once per case of the scenario).
 
 To compare ground truth and estimate in MeshLab: *Colorize by face quality*
 on the two `_ratio.ply`, with Min and Max set by hand and equal for both, and

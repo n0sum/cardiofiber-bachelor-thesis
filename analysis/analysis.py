@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """
-Analysis of the experiment grid: for each scenario of SCENARIOS (the same list,
-in the same order, as run_all.sh: MAIN_SCENARIOS, then the rest of SWEEP) the 42
-subsets of at least 3 maps with the per-face estimator
-(output/SCENARIO/per_face/sub_*/) and the 20 triplets with method 2 of
-Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/), each with estimate.ply
-(format D) and estimate.csv.
+Analysis of the experiments, all on the painted mean speed (mu of
+simulator/painted_mu.ply). For each scenario of SCENARIOS (the same list, in
+the same order, as run_all.sh: GRID, then CORE) the 42 subsets of at least 3
+maps with the per-face estimator (output/SCENARIO/per_face/sub_*/) and the 20
+triplets with method 2 of Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/),
+each with estimate.ply (format D) and estimate.csv.
+    GRID   painted at the LAT noise levels sigma = 0, 0.05, 0.1, 0.3 ms: the two
+           main axes, number of maps k and noise sigma
+    CORE   the core sample in anisotropy: mu of painted and constant
+           r = CV_L / CV_T = 1.2, 2, 2.8, at sigma = CORE_NOISE = 0.05 ms; its
+           single condition is k = CORE_K = 4
 
 Usage, from the repository root:
-    python analysis/analysis.py [NOISE]
-Without NOISE writes everything to output/figures/. With NOISE (e.g. 0.1, the
-standard deviation in ms of the noise on the LATs, NOISES in run_all.sh) the
-scenarios SCENARIO_noiseNOISE take the place of the clean ones, with the same
-roles (MAIN_SCENARIOS, PLOT1_SCENARIOS, SWEEP, SCENARIOS, SCENARIO_COND) and the
-same legend labels; the title of every figure gives the noise ("LAT noise
-σ = 0.1 ms") and everything goes to output/figures_noiseNOISE/. NOISE is read
-only when analysis.py runs as a script: importing it (error_maps.py) gives the
-clean configuration.
+    python analysis/analysis.py              # -> output/figures/
 
 load() is the only place where the errors are computed, the same for the two
 methods: estimate.ply against the ground truth data/reference/SCENARIO/truth.ply,
@@ -37,13 +34,12 @@ does not depend on the unit of the speeds (mu shifts by a constant); it is the
 same for speeds or slownesses (log M^-1 = -log M).
 AREA-WEIGHTED statistics: q50, q90 and q99 (the values below which 50, 90, 99%
 of the area lies). cond = sigma_max / sigma_min of the system of a face
-(per-face estimator only, from estimate.csv); its quantiles, area-weighted, are
-over the faces with computed cond (estimable, and discarded for lambda2 <= 1e-8
-lambda1).
+(per-face estimator only, from estimate.csv): only in per_face.csv, no figure
+uses it.
 
 per_face.csv, one row per scenario and subset of the per-face method: non-estimable
 area, errors on the estimable faces of the subset and q50, q90 and q99
-of cond.
+of cond (area-weighted, on the faces with computed cond).
 
 comparison.csv, one row per scenario, triplet and method (per_face, roney): non-estimable
 area of the method alone, paired area (estimable by both methods with that triplet)
@@ -54,59 +50,39 @@ singular); empty on the per-face rows. The rows with sub = pooled gather the
 paired faces of the 20 triplets of the scenario; their areas are the means over
 the triplets.
 
-Boxes (plots 0b, 0d, 3): from q25 to q75, line at q50, whiskers from q10 to q90,
-area-weighted. Plots 0a, 0b, 0c only on SCENARIO_COND (uniform): cond depends on
-r, so there it is compared only at equal r; plots 0d, 2 and 3 are on the scenarios
-of SWEEP (uniform fields differing only in r: 1.6, 2 (uniform), 2.4), with all
-the 42 subsets.
-plot0_cond_errors.png (0a), faces with computed cond of the 42 subsets pooled, in
-10 equal-area cond bins, each at its median cond. Two panels side by side. The
-error: per bin q50, q90 and q99 of the error on its estimable faces, area-weighted,
-points joined by lines (colors and markers of QSTYLE), log scale on both axes,
-in the title the Spearman correlation between cond and error, unweighted. The
-area: the % of area of the bin where the estimate is
-not an ellipse, i.e. the faces with cond but with estimate NaN (the smaller
-eigenvalue lambda2 <= 1e-8 lambda1: the estimated conic is a hyperbola, or an
-ellipse flat to numerical zero). The faces discarded because the smallest
-singular value is below threshold have no cond and do not appear.
-plot0_maps_cond.png (0b), one box of cond per k, on the faces with computed cond
-of all the subsets with k maps, log scale.
-plot0_cond_area.png (0c), one point per subset from per_face.csv: cond_q90 (log)
-on the horizontal axis, non-estimable area on the vertical axis, color and marker
-by k, in the title Spearman's rho over the 42 points.
-plot0_ratio_cond.png (0d), one box of cond per scenario of SWEEP, r on the
-horizontal axis, on the faces with computed cond of all its 42 subsets (the same
-mix of k in each box), log scale.
-plot3_cond_k_ratio.png, boxes of cond grouped by k (3 to 6), in each group one box
-per scenario of SWEEP, one color per r (those of plot 4), on the faces with
-computed cond of the subsets with that k; log scale; in the title Spearman's rho
-of cond with k and with r over the faces with computed cond of the three
-scenarios, unweighted. The numbers in cond_k_ratio.csv, one row per (k, r):
-cond_q50, cond_q90 (area-weighted) and the number of faces.
-plot3_error_k_ratio.png, the same with the log-Euclidean error E in place of cond,
-on the estimable faces of the subsets with that k; in the title Spearman's rho of E
-with k and with r over the same faces, unweighted.
+grid.csv, one row per (sigma, k) of the scenarios of GRID; core.csv, one row per
+scenario of CORE at k = CORE_K (r in place of noise_ms). The cell of (scenario, k),
+cell(): all the subsets with k maps (20 triplets, 15 quadruplets, 6 quintuplets,
+1 sextuplet) concatenated, each face once per subset; subsets = their number;
+error_mean = sum area E / sum area and error_q50/q90/q99 area-weighted, on the
+estimable rows; non_estimable_area_% = area of the non-estimable rows / area of
+all the rows (the mean over the subsets of the non-estimable area of each).
 
-The other figures, each in two PNGs: _area (non-estimable area, one panel) and
-_error. In plots 1 and 2 the latter has a single
-panel with q50, q90 and q99 (circle, square, triangle, Okabe-Ito colors),
-points only without lines, with the vertical axis on a log scale and labels in
-plain numbers; in plot 4 three panels q50, q90, q99, each with its
-own scale. The other vertical axes, including the _area files, are linear from 0;
-in plot 4 also the horizontal axis, with the same limits.
-  plot1_maps_SCENARIO  one per scenario of PLOT1_SCENARIOS (painted), as a function of k: one point per
-                       subset and quantile, staggered within each k
-  plot2_ratio          per-face only, the scenarios of SWEEP, as a function of r: one point
-                       per subset and quantile, the 42 subsets of each r staggered
-                       within it, ordered by k
-  plot4_roney          one point per triplet and scenario of SCENARIOS (all four, 80
-                       points), Roney on the horizontal axis and per-face on the
-                       vertical axis, same limits on both axes, one color (Okabe-Ito)
-                       and one marker per scenario, in the order of run_all.sh, labels
-                       of SCENARIO_LABELS; limits, minimum, maximum and centroid over
-                       all the points; on the axes only 0, minimum, centroid (mean of
-                       all the points, cross) and maximum of the cloud, with dotted
-                       projections and without grid
+Figures:
+  plot_grid.png        the cells of grid.csv as a 4 x 4 colored table: k = 3..6 on
+                       the horizontal axis, sigma = 0, 0.05, 0.1, 0.3 ms on the
+                       vertical axis as categories (equispaced, sigma = 0 at the
+                       bottom); color error_mean, sequential, log scale; in each
+                       cell error_mean, error_q99 and the non-estimable area
+  plot_core.png        the rows of core.csv as a function of r: left error_mean
+                       and error_q99, right the non-estimable area
+  plot3_error_k_ratio.png
+                       boxes of the log-Euclidean error E grouped by k (3 to 6), in
+                       each group one box per scenario of CORE, one color per r, on
+                       the estimable faces of the subsets with that k, log scale;
+                       boxes from q25 to q75, line at q50, whiskers from q10 to q90,
+                       area-weighted; in the title Spearman's rho of E with k and
+                       with r over the same faces, unweighted
+  plot4_roney_noise_{area,error}.png, plot4_roney_ratio_{area,error}.png
+                       per-face vs Roney, one point per triplet and scenario: of
+                       GRID (80 points, one color and marker per sigma) and of CORE
+                       (60 points, one per r). _area: non-estimable area of each
+                       method alone, one panel; _error: three panels q50, q90, q99
+                       on the paired faces, each with its own scale. Roney on the
+                       horizontal axis and per-face on the vertical axis, linear
+                       from 0 with the same limits, y = x; on the axes only 0,
+                       minimum, centroid (mean of all the points, cross) and maximum
+                       of the cloud, with dotted projections and without grid
 """
 
 import functools
@@ -118,7 +94,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.colors import to_rgba
+from matplotlib.colors import LogNorm, to_rgba
 from matplotlib.ticker import FormatStrFormatter, LogLocator, NullFormatter
 from scipy.stats import spearmanr
 
@@ -129,29 +105,20 @@ from roney import read_ply                                # the PLY reader
 REF = ROOT / "data" / "reference"
 OUT = ROOT / "output"
 FIG = OUT / "figures"
-MAIN_SCENARIOS = ["uniform", "painted"]
-PLOT1_SCENARIOS = ["painted"]                             # plot 1 (uniform is in plot 2, at r = 2)
-SWEEP = [("r1.6", 1.6), ("uniform", 2.0), ("r2.4", 2.4)]  # plots 0d, 2, 3: uniform fields differing only in r, increasing r
-SCENARIOS = MAIN_SCENARIOS + [sc for sc, _ in SWEEP if sc not in MAIN_SCENARIOS]   # tables and plot 4: run_all.sh
-SCENARIO_LABELS = {"uniform": "uniform (r = 2)", "painted": "painted", "r1.6": "r = 1.6", "r2.4": "r = 2.4"}
-SCENARIO_COND = "uniform"                                 # plots 0a, 0b, 0c
+GRID = [("painted", 0.0), ("painted_noise0.05", 0.05), ("painted_noise0.1", 0.1),
+        ("painted_noise0.3", 0.3)]                        # (scenario, LAT noise sigma in ms), increasing sigma
+CORE = [("painted_r1.2_noise0.05", 1.2), ("painted_r2_noise0.05", 2.0),
+        ("painted_r2.8_noise0.05", 2.8)]                  # (scenario, constant r), increasing r
+CORE_K = 4                                                # maps of the core sample
+CORE_NOISE = 0.05                                         # sigma (ms) of the scenarios of CORE
+SCENARIOS = [sc for sc, _ in GRID] + [sc for sc, _ in CORE]   # tables: the order of run_all.sh
 ERRORS = ("error",)
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
           "error": "log-Euclidean error ‖log M̂ − log M‖"}
 METHODS = {"per_face": "per-face", "roney": "Roney"}
-BLUE = "#2a78d6"
-QSTYLE = {f"q{q}": (c, m) for q, c, m in zip(QUANTILES, ("#0072B2", "#D55E00", "#009E73"), "os^")}  # Okabe-Ito
 OKABE_ITO = ("#000000", "#0072B2", "#D55E00", "#009E73", "#E69F00", "#56B4E9", "#CC79A7")  # scenarios of plots 3, 4
 MARKERS = "osD^v<>"                                       # scenarios of plot 4
-NOISE_TITLE = ""                                          # with NOISE: "LAT noise σ = NOISE ms"
-
-
-def with_noise(title):
-    """The title of a figure, with the noise on the LATs on a line of its own if there is any."""
-    if NOISE_TITLE:
-        return f"{title}\n{NOISE_TITLE}"
-    return title
 
 
 def wquantile(values, weights, q):
@@ -272,15 +239,13 @@ def tables():
     return pd.DataFrame(per_face_table), pd.DataFrame(comparison)
 
 
-def figure(name, title, draw, together=False, after=None):
+def figure(name, title, draw, after=None):
     """Two PNGs, FIG/NAME_{area,error}.png. draw(ax, cols, ylabel) draws
-    in one panel the columns of cols, {label: column}. With together q50, q90 and q99 are in a
-    single panel, otherwise one panel per quantile. after(fig), if given, is called before saving."""
+    in one panel the columns of cols, {label: column}: the area in one panel, the error in one panel
+    per quantile. after(fig), if given, is called before saving."""
     for q, ylabel in YLABEL.items():
         if q == "area":
             panels = {"non-estimable area": {"non-estimable area": "non_estimable_area_%"}}
-        elif together:
-            panels = {"q50, q90 and q99": {f"q{p}": f"{q}_q{p}" for p in QUANTILES}}
         else:
             panels = {f"q{p}": {f"q{p}": f"{q}_q{p}"} for p in QUANTILES}
         fig, axes = plt.subplots(1, len(panels), figsize=(max(4.6 * len(panels), 7.5), 4.6), squeeze=False,
@@ -290,9 +255,9 @@ def figure(name, title, draw, together=False, after=None):
             draw(ax, cols, ylabel)
             ax.set_title(panel)
         handles, labels = axes[0, 0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc="outside lower center", ncol=min(len(labels), 6 if len(panels) > 1 else 4),
+        fig.legend(handles, labels, loc="outside lower center", ncol=min(len(labels), 6 if len(panels) > 1 else 3),
                    frameon=False)
-        fig.suptitle(with_noise(title))
+        fig.suptitle(title)
         if after:
             after(fig)
         fig.savefig(FIG / f"{name}_{q}.png", dpi=140, bbox_inches="tight")
@@ -346,14 +311,7 @@ def y_axis(ax, ylabel, log=False):
         ax.set_ylim(bottom=0)
 
 
-def points(ax, x, df, cols):
-    """One point per row and column of cols, color and marker of the quantile."""
-    for label, col in cols.items():
-        color, marker = QSTYLE.get(label, (BLUE, "o"))
-        ax.scatter(x, df[col], s=24, color=color, marker=marker, label=label, zorder=3)
-
-
-def boxes(ax, x, x0, x1, groups, col, color=QSTYLE["q50"][0], label=None):
+def boxes(ax, x, x0, x1, groups, col, color, label=None):
     """One box per group, in x from x0 to x1: from q25 to q75 of the absolute value of col, line at q50 and whiskers
     from q10 to q90, area-weighted."""
     q10, q25, q50, q75, q90 = (groups.apply(lambda s: wquantile(s[col].abs(), s["area"], q)).to_numpy()
@@ -370,166 +328,119 @@ def boxes_note(fig):
     fig.supxlabel("box: q25–q75 · line: q50 · whiskers: q10–q90 (area-weighted)", fontsize="medium")
 
 
-def main():
-    FIG.mkdir(parents=True, exist_ok=True)
-    per_face_table, comparison = tables()
-    per_face_table.to_csv(FIG / "per_face.csv", index=False, float_format="%.6g")
-    comparison.to_csv(FIG / "comparison.csv", index=False, float_format="%.6g")
+def cell(scenario, k):
+    """A cell of grid.csv and core.csv: all the per-face subsets with k maps of the scenario
+    concatenated, each face once per subset. Mean and quantiles of E area-weighted on the estimable
+    rows; the non-estimable area over all the rows, i.e. the mean over the subsets (same total area)."""
+    d = all_subsets(scenario)
+    d = d[d["k"] == k]
+    est = d[d["estimable"]]
+    return {"k": k, "subsets": d["sub"].nunique(), "non_estimable_area_%": non_estimable(d),
+            "error_mean": (est["area"] * est["error"]).sum() / est["area"].sum(), **quantiles(d)}
 
-    # plot 0a: SCENARIO_COND, all subsets, q50, q90, q99 of the error as a function of cond
-    c = all_subsets(SCENARIO_COND)
-    c = c[c["cond"].notna()].sort_values("cond")
-    w = c["area"]
-    c = c.assign(bin=np.minimum((10 * (w.cumsum() - 0.5 * w) / w.sum()).astype(int), 9))   # 10 equal-area bins
-    est = c[c["estimable"]]
-    xc = c.groupby("bin").apply(lambda s: wquantile(s["cond"], s["area"], 0.50)).to_numpy()
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), layout="constrained")
-    ax = axes[0]
-    for q in QUANTILES:
-        color, marker = QSTYLE[f"q{q}"]
-        y = est.groupby("bin").apply(lambda s: wquantile(s["error"], s["area"], q / 100)).to_numpy()
-        ax.plot(xc, y, color=color, marker=marker, ms=5, lw=1.5, label=f"q{q}", zorder=3)
-    ax.grid(alpha=0.3)
-    ax.set_xlabel("cond, median of the bin (log scale)")
-    ax.set_ylabel(f"{YLABEL['error']}\n(log scale)")       # two lines: the label is long
-    log_scale(ax, "xy")
-    ax.set_title(f"error, Spearman's ρ = {spearmanr(est['cond'], est['error']).statistic:.2f}")
-    ax = axes[1]
-    ax.plot(xc, c.groupby("bin").apply(non_estimable), color=QSTYLE["q50"][0], lw=1.5, marker="o", ms=5)
-    ax.grid(alpha=0.3)
-    ax.set_xlabel("cond, median of the bin (log scale)")
-    log_scale(ax, "x")
-    y_axis(ax, "area where the estimate is not an ellipse [%]")
-    ax.set_title("estimate is not an ellipse")
-    fig.legend(*axes[0].get_legend_handles_labels(), loc="outside lower center", ncol=3, frameon=False,
-               title="quantiles of the error in the bin, area-weighted")
-    fig.suptitle(with_noise(f"{SCENARIO_COND}, all map subsets: error as a function of cond, 10 equal-area bins"))
-    fig.savefig(FIG / "plot0_cond_errors.png", dpi=140, bbox_inches="tight")
+
+def plot_grid(grid):
+    """plot_grid.png: the cells of grid.csv as a colored table, k on x, sigma on y as categories."""
+    ks = sorted(grid["k"].unique())
+    noises = [n for _, n in GRID]                         # increasing sigma: row 0 (bottom) is sigma = 0
+    cells = grid.set_index(["noise_ms", "k"])
+    mean = np.array([[cells.loc[(n, k), "error_mean"] for k in ks] for n in noises])
+    cmap = plt.get_cmap("viridis")
+    norm = LogNorm(vmin=mean.min(), vmax=mean.max())
+    fig, ax = plt.subplots(figsize=(8.2, 6.2), layout="constrained")
+    im = ax.imshow(mean, origin="lower", cmap=cmap, norm=norm, aspect="auto")
+    for i, n in enumerate(noises):
+        for j, k in enumerate(ks):
+            c = cells.loc[(n, k)]
+            r, g, b, _ = cmap(norm(c["error_mean"]))
+            luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+            ax.text(j, i, f"mean {c['error_mean']:.3g}\nq99 {c['error_q99']:.3g}\n"
+                          f"n.e. {c['non_estimable_area_%']:.2g}%",
+                    ha="center", va="center", fontsize=10, linespacing=1.5,
+                    color="black" if luminance > 0.45 else "white")
+    ax.set_xticks(range(len(ks)), [f"{k}" for k in ks])
+    ax.set_yticks(range(len(noises)), [f"{n:g}" for n in noises])
+    ax.set_xticks(np.arange(len(ks) + 1) - 0.5, minor=True)
+    ax.set_yticks(np.arange(len(noises) + 1) - 0.5, minor=True)
+    ax.grid(which="minor", color="white", lw=2)
+    ax.tick_params(which="minor", length=0)
+    ax.set_xlabel("maps used, k (subsets: " + ", ".join(
+        f"{int(cells.loc[(noises[0], k), 'subsets'])}" for k in ks) + ")")
+    ax.set_ylabel("LAT noise σ [ms]")
+    bar = fig.colorbar(im, ax=ax, shrink=0.9)
+    bar.set_label("mean log-Euclidean error (area-weighted)")
+    ticks = [t for t in (0.05, 0.1, 0.2, 0.5, 1, 2, 5) if norm.vmin <= t <= norm.vmax]
+    bar.set_ticks([norm.vmin, *ticks, norm.vmax], labels=[f"{t:.2g}" for t in (norm.vmin, *ticks, norm.vmax)])
+    bar.ax.yaxis.set_minor_formatter(NullFormatter())
+    fig.suptitle("painted, per-face: error by number of maps and LAT noise")
+    fig.supxlabel("mean and q99 on the estimable faces of all the subsets with k maps, area-weighted; "
+                  "n.e.: non-estimable area", fontsize="medium")
+    fig.savefig(FIG / "plot_grid.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
-    # plot 0b: SCENARIO_COND, one box of cond per k
-    ks = np.array(sorted(c["k"].unique()))
-    fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
-    boxes(ax, ks, ks - 0.25, ks + 0.25, c.groupby("k"), "cond")
+
+def plot_core(core):
+    """plot_core.png: the rows of core.csv as a function of r, error left, non-estimable area right."""
+    rs = core["r"].to_numpy()
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), layout="constrained")
+    ax = axes[0]
+    ax.plot(rs, core["error_mean"], color="#0072B2", marker="o", ms=6, lw=1.5, label="mean")
+    ax.plot(rs, core["error_q99"], color="#D55E00", marker="s", ms=6, lw=1.5, ls="--", label="q99")
+    ax.legend(frameon=False)
+    y_axis(ax, YLABEL["error"])
+    ax.set_title("error on the estimable faces, area-weighted")
+    ax = axes[1]
+    ax.plot(rs, core["non_estimable_area_%"], color="#000000", marker="o", ms=6, lw=1.5)
+    y_axis(ax, YLABEL["area"])
+    ax.set_title("non-estimable area")
+    for ax in axes:
+        ax.grid(alpha=0.3)
+        ax.set_xticks(rs, [f"{r:g}" for r in rs])
+        ax.set_xlabel("r = CV_L / CV_T")
+    n = int(core["subsets"].iloc[0])
+    fig.suptitle(f"painted mean speed, constant r, k = {CORE_K} ({n} subsets), LAT noise σ = {CORE_NOISE:g} ms")
+    fig.savefig(FIG / "plot_core.png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot3():
+    """plot3_error_k_ratio.png: boxes of E grouped by k, one per scenario of CORE."""
+    s = pd.concat([all_subsets(sc).assign(r=r) for sc, r in CORE])
+    s = s[s["error"].notna()]
+    ks = sorted(s["k"].unique())
+    fig, ax = plt.subplots(figsize=(9, 4.8), layout="constrained")
+    for j, ((sc, r), color) in enumerate(zip(CORE, OKABE_ITO)):
+        x = np.array(ks) + 0.27 * (j - (len(CORE) - 1) / 2)
+        boxes(ax, x, x - 0.11, x + 0.11, s[s["r"] == r].groupby("k"), "error", color=color, label=f"r = {r:g}")
+    rho_k = spearmanr(s["error"], s["k"]).statistic
+    rho_r = spearmanr(s["error"], s["r"]).statistic
     ax.grid(alpha=0.3)
     ax.set_xticks(ks)
     ax.set_xlabel("maps used, k")
-    y_axis(ax, "cond", log=True)
+    y_axis(ax, YLABEL["error"], log=True)
+    fig.legend(*ax.get_legend_handles_labels(), loc="outside right center", frameon=False)
     boxes_note(fig)
-    fig.suptitle(with_noise(f"{SCENARIO_COND}: distribution of cond by number of maps"))
-    fig.savefig(FIG / "plot0_maps_cond.png", dpi=140, bbox_inches="tight")
+    fig.suptitle(f"painted mean speed, constant r, LAT noise σ = {CORE_NOISE:g} ms, all map subsets: "
+                 f"log-Euclidean error E by k and by r\n"
+                 f"Spearman's ρ(E, k) = {rho_k:.2f}, ρ(E, r) = {rho_r:.2f} (estimable faces, unweighted)")
+    fig.savefig(FIG / "plot3_error_k_ratio.png", dpi=140, bbox_inches="tight")
     plt.close(fig)
 
-    # plot 0c: SCENARIO_COND, non-estimable area vs cond_q90, one point per subset
-    g0 = per_face_table[per_face_table["scenario"] == SCENARIO_COND]
-    rho = spearmanr(g0["cond_q90"], g0["non_estimable_area_%"]).statistic
-    fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
-    for (k, s), (color, marker) in zip(g0.groupby("k"), (("#000000", "o"), ("#0072B2", "s"), ("#D55E00", "^"),
-                                                         ("#009E73", "D"))):
-        ax.scatter(s["cond_q90"], s["non_estimable_area_%"], s=28, color=color, marker=marker, label=f"k = {k}",
-                   zorder=3)
-    ax.grid(alpha=0.3)
-    ax.set_xlabel("cond, subset q90 (log scale)")
-    log_scale(ax, "x")
-    y_axis(ax, YLABEL["area"])
-    fig.legend(*ax.get_legend_handles_labels(), loc="outside lower center", ncol=4, frameon=False)
-    fig.suptitle(with_noise(f"{SCENARIO_COND}: non-estimable area and tail of cond, one point per map subset "
-                            f"(Spearman's ρ = {rho:.2f})"))
-    fig.savefig(FIG / "plot0_cond_area.png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
 
-    # plot 0d: one box of cond per r, all the subsets of each scenario of SWEEP
-    rs = [r for _, r in SWEEP]
-    sweep = pd.concat([all_subsets(sc).assign(r=r) for sc, r in SWEEP])
-    sweep = sweep[sweep["cond"].notna()]
-    fig, ax = plt.subplots(figsize=(7.5, 4.6), layout="constrained")
-    boxes(ax, np.array(rs), np.array(rs) - 0.1, np.array(rs) + 0.1, sweep.groupby("r"), "cond")
-    ax.grid(alpha=0.3)
-    ax.set_xticks(rs, [f"{r:g}" for r in rs])
-    ax.set_xlabel("r = CV_L / CV_T")
-    y_axis(ax, "cond", log=True)
-    boxes_note(fig)
-    fig.suptitle(with_noise("uniform fields differing only in r: distribution of cond by r, all map subsets"))
-    fig.savefig(FIG / "plot0_ratio_cond.png", dpi=140, bbox_inches="tight")
-    plt.close(fig)
-
-    # plot 1: for each scenario of PLOT1_SCENARIOS, as a function of k, points staggered within each k
-    for sc in PLOT1_SCENARIOS:
-        g1 = per_face_table[per_face_table["scenario"] == sc].copy()
-        i, n = g1.groupby("k").cumcount(), g1.groupby("k")["k"].transform("size")
-        g1["x"] = g1["k"] + 0.6 * (i - (n - 1) / 2) / n
-
-        def draw1(ax, cols, ylabel):
-            points(ax, g1["x"], g1, cols)
-            ax.set_xticks(sorted(g1["k"].unique()))
-            ax.set_xlabel("maps used, k")
-            y_axis(ax, ylabel, log=len(cols) > 1)
-
-        figure(f"plot1_maps_{sc}", f"{sc}: one point per map subset", draw1, together=True)
-
-    # plot 2: per-face, as a function of r, the 42 subsets of each r staggered within it, ordered by k
-    g2 = per_face_table.merge(pd.DataFrame(SWEEP, columns=["scenario", "r"]), on="scenario")
-    g2 = g2.sort_values(["r", "k", "sub"], kind="stable")
-    i, n = g2.groupby("r").cumcount(), g2.groupby("r")["r"].transform("size")
-    g2["x"] = g2["r"] + 0.25 * (i - (n - 1) / 2) / n
-
-    def draw2(ax, cols, ylabel):
-        points(ax, g2["x"], g2, cols)
-        ax.set_xticks(rs, [f"{r:g}" for r in rs])
-        ax.set_xlabel("r = CV_L / CV_T (within each r the 42 subsets, k increasing from left to right)")
-        y_axis(ax, ylabel, log=len(cols) > 1)
-
-    figure("plot2_ratio", "uniform fields differing only in r, per-face: one point per map subset", draw2,
-           together=True)
-
-    # plot 3: cond (plot3_cond_k_ratio) and error (plot3_error_k_ratio) by k and by r, boxes grouped by k, one per r
-    colors = dict(zip(SCENARIOS, OKABE_ITO))              # the colors of the scenarios in plot 4
-    sweep_all = pd.concat([all_subsets(sc).assign(r=r) for sc, r in SWEEP])
-
-    def plot3(col, name, ylabel, what, symbol, faces):
-        """Boxes of col on the faces where it is defined; returns the rows (k, r) of q50, q90 and faces."""
-        s = sweep_all[sweep_all[col].notna()]
-        ks = sorted(s["k"].unique())
-        fig, ax = plt.subplots(figsize=(9, 4.8), layout="constrained")
-        rows = []
-        for j, (sc, r) in enumerate(SWEEP):
-            s3 = s[s["r"] == r]
-            x = np.array(ks) + 0.27 * (j - 1)
-            boxes(ax, x, x - 0.11, x + 0.11, s3.groupby("k"), col, color=colors[sc], label=f"r = {r:g}")
-            for k, g in s3.groupby("k"):
-                rows.append({"k": k, "r": r, "scenario": sc, f"{col}_q50": wquantile(g[col], g["area"], 0.50),
-                             f"{col}_q90": wquantile(g[col], g["area"], 0.90), "faces": len(g)})
-        rho_k = spearmanr(s[col], s["k"]).statistic
-        rho_r = spearmanr(s[col], s["r"]).statistic
-        ax.grid(alpha=0.3)
-        ax.set_xticks(ks)
-        ax.set_xlabel("maps used, k")
-        y_axis(ax, ylabel, log=True)
-        fig.legend(*ax.get_legend_handles_labels(), loc="outside right center", frameon=False)
-        boxes_note(fig)
-        fig.suptitle(with_noise(f"uniform fields differing only in r, all map subsets: {what} by k and by r\n"
-                                f"Spearman's ρ({symbol}, k) = {rho_k:.2f}, ρ({symbol}, r) = {rho_r:.2f} "
-                                f"({faces}, unweighted)"))
-        fig.savefig(FIG / f"{name}.png", dpi=140, bbox_inches="tight")
-        plt.close(fig)
-        return rows
-
-    rows = plot3("cond", "plot3_cond_k_ratio", "cond", "cond", "cond", "faces with cond")
-    pd.DataFrame(rows).sort_values(["k", "r"]).to_csv(FIG / "cond_k_ratio.csv", index=False, float_format="%.6g")
-    plot3("error", "plot3_error_k_ratio", YLABEL["error"], "log-Euclidean error E", "E", "estimable faces")
-
-    # plot 4: per-face vs Roney, one point per triplet and scenario
-    triplets = comparison[comparison["sub"] != "pooled"]
+def plot4(comparison, name, labels):
+    """FIG/NAME_{area,error}.png: per-face vs Roney, one point per triplet and scenario of labels,
+    {scenario: legend label}, one color and marker per scenario in the order of labels."""
+    triplets = comparison[(comparison["sub"] != "pooled") & comparison["scenario"].isin(labels)]
     g4 = triplets[triplets["method"] == "roney"].merge(triplets[triplets["method"] == "per_face"],
                                                        on=["scenario", "sub"],
-                                                       suffixes=("_roney", "_per_face"))
+                                                       suffixes=("_roney", "_per_face")).reset_index(drop=True)
 
     def draw4(ax, cols, ylabel):
         (col,) = cols.values()
-        for sc, color, marker in zip(SCENARIOS, OKABE_ITO, MARKERS):
+        for (sc, label), color, marker in zip(labels.items(), OKABE_ITO, MARKERS):
             s = g4[g4["scenario"] == sc]
             ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=color, marker=marker,
-                       label=SCENARIO_LABELS[sc], zorder=3)
+                       label=label, zorder=3)
         x, y = g4[f"{col}_roney"], g4[f"{col}_per_face"]
         lim = (0, 1.05 * max(x.max(), y.max()))
         ax.plot(lim, lim, color="#555", lw=1, label="y = x")
@@ -553,21 +464,29 @@ def main():
         ax.set_xlabel(f"{METHODS['roney']}:\n{ylabel}")                 # two lines: the labels are long
         ax.set_ylabel(f"{METHODS['per_face']}:\n{ylabel}")
 
-    figure("plot4_roney", "map triplets: per-face vs Roney, paired faces (area: each method alone)\n"
+    figure(name, f"map triplets: per-face vs Roney, paired faces (area: each method alone), {len(g4)} points\n"
            "on the axes: min, centroid (mean of all the points) and max", draw4, after=separate_tick_labels)
 
 
+def main():
+    FIG.mkdir(parents=True, exist_ok=True)
+    per_face_table, comparison = tables()
+    per_face_table.to_csv(FIG / "per_face.csv", index=False, float_format="%.6g")
+    comparison.to_csv(FIG / "comparison.csv", index=False, float_format="%.6g")
+
+    ks = sorted(per_face_table["k"].unique())
+    grid = pd.DataFrame([{"scenario": sc, "noise_ms": n, **cell(sc, k)} for sc, n in GRID for k in ks])
+    core = pd.DataFrame([{"scenario": sc, "r": r, **cell(sc, CORE_K)} for sc, r in CORE])
+    cols = ["k", "subsets", "non_estimable_area_%", "error_mean", "error_q50", "error_q90", "error_q99"]
+    grid[["scenario", "noise_ms", *cols]].to_csv(FIG / "grid.csv", index=False, float_format="%.6g")
+    core[["scenario", "r", *cols]].to_csv(FIG / "core.csv", index=False, float_format="%.6g")
+
+    plot_grid(grid)
+    plot_core(core)
+    plot3()
+    plot4(comparison, "plot4_roney_noise", {sc: f"σ = {n:g} ms" for sc, n in GRID})
+    plot4(comparison, "plot4_roney_ratio", {sc: f"r = {r:g}" for sc, r in CORE})
+
+
 if __name__ == "__main__":
-    # NOISE, optional: the scenarios SCENARIO_noiseNOISE in place of the clean ones, with the same roles
-    if len(sys.argv) > 1:
-        noise = sys.argv[1]
-        suffix = f"_noise{noise}"
-        FIG = OUT / f"figures_noise{noise}"
-        MAIN_SCENARIOS = [sc + suffix for sc in MAIN_SCENARIOS]
-        PLOT1_SCENARIOS = [sc + suffix for sc in PLOT1_SCENARIOS]
-        SWEEP = [(sc + suffix, r) for sc, r in SWEEP]
-        SCENARIOS = [sc + suffix for sc in SCENARIOS]
-        SCENARIO_LABELS = {sc + suffix: label for sc, label in SCENARIO_LABELS.items()}
-        SCENARIO_COND = SCENARIO_COND + suffix
-        NOISE_TITLE = f"LAT noise σ = {noise} ms"
     main()

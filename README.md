@@ -27,7 +27,7 @@ estimator/                     project around the package: files and executables
   include/happly.h             vendored PLY reader/writer (THIRD_PARTY.md)
   roney.py                     method 2 of Roney et al. 2019, estimate in format D
 analysis/analysis.py           errors against the ground truth, area-weighted statistics,
-                               figures, per_face.csv and comparison.csv
+                               figures and tables (per_face, comparison, grid, core)
 experiments/                   template.conf and roney.conf, subsets.py, error_maps.py;
                                formats in experiments/README.md
 ```
@@ -88,32 +88,32 @@ Then from the root, with the `cardiofiber` environment active:
 ./run_all.sh
 ```
 
-The script builds `estimator/` in `estimator/build/`, then for each scenario
-(the list `SCENARIOS` at its top) writes the ground truth with
-`make_truth.py` and simulates the six LAT maps with `Simulate` (one pacing
+The script builds `estimator/` in `estimator/build/`, writes the ground truths
+with `make_truth.py` and simulates the six LAT maps with `Simulate` (one pacing
 site per row of `simulator/stage1/pacing_sites.csv`). It then deletes
-`output/` and computes a single experiment grid: for each scenario the
-per-face estimator on all 42 subsets of at least 3 maps and Roney's method on
-the 20 triplets. The two estimators read only the LAT maps; the errors are
-computed afterwards by `analysis/analysis.py`, against the ground truth.
+`output/` and runs the two estimators on every scenario: the per-face
+estimator on all 42 subsets of at least 3 maps and Roney's method on the 20
+triplets. The two estimators read only the LAT maps; the errors are computed
+afterwards by `analysis/analysis.py`, against the ground truth.
 
-Noise on the LATs: besides the clean scenario S, for each standard deviation N
-of `NOISES` at the top of `run_all.sh` (0.05 and 0.1 ms) there is a scenario
-`S_noiseN`, with the same ground truth and LAT maps where `Simulate` adds to
-every vertex of every map a Gaussian number with mean 0 and standard deviation
-N ms (additive, in ms; independent per vertex and per map; fixed seed in
-`Simulate.cpp`, so the run is reproducible). The grid runs on all 12 scenarios;
-the analysis and the PLYs for MeshLab are run three times: clean
-(`output/figures/`), σ = 0.05 ms (`output/figures_noise0.05/`) and σ = 0.1 ms
-(`output/figures_noise0.1/`).
+All the experiments are on the AugmentA fibers and the painted mean speed μ.
+Two main axes, the number of maps k (3 to 6) and the noise σ on the LATs, on
+the field `painted`; and a core sample in anisotropy at a single intermediate
+condition (k = 4, σ = 0.05 ms), with the anisotropy ratio r = CV_L/CV_T
+constant at 1.2, 2 and 2.8. Seven scenarios:
 
-Scenarios (`simulator/make_truth.py`):
+| role | scenario (`data/reference/`) | ground truth | σ (ms) |
+|---|---|---|---|
+| grid | `painted` | `painted` | 0 |
+| grid | `painted_noise0.05`, `painted_noise0.1`, `painted_noise0.3` | `painted` | 0.05, 0.1, 0.3 |
+| core sample | `painted_r1.2_noise0.05`, `painted_r2_noise0.05`, `painted_r2.8_noise0.05` | `painted_r1.2`, `painted_r2`, `painted_r2.8` | 0.05 |
 
-| scenario  | ground truth |
-|-----------|--------------|
-| `uniform` | AugmentA fibers, CV_L = 1.05, CV_T = 0.525 mm/ms on every face (r = 2) |
-| `painted` | AugmentA fibers; μ and α vary continuously, painted by hand (`simulator/painted_{alpha,mu}.ply`) |
-| `r1.6`, `r2.4` | sweep in r, with `uniform` as r = 2: as `uniform` (same fibers, same μ), α = ½ ln r on every face with r = 1.6, 2.4 |
+Ground truths (`simulator/make_truth.py`):
+
+| ground truth | field |
+|---|---|
+| `painted` | μ and α vary continuously, painted by hand (`simulator/painted_{alpha,mu}.ply`) |
+| `painted_r1.2`, `painted_r2`, `painted_r2.8` | μ of `painted`, face by face; α = ½ ln r constant on every face, r = 1.2, 2, 2.8 (constant on purpose: a varying r would mix with the position on the mesh) |
 
 In `painted`, per vertex g = mean of R, G, B / 255 (0 black, 1 white; the
 alpha channel is ignored), then α = ½ ln 1.6 + g (½ ln 2.4 − ½ ln 1.6)
@@ -121,32 +121,35 @@ alpha channel is ignored), then α = ½ ln 1.6 + g (½ ln 2.4 − ½ ln 1.6)
 black, to 1.0 mm/ms, white); per face the mean of the values of its three
 vertices.
 
+Noise on the LATs (`NOISES` and `CORE_NOISE` at the top of `run_all.sh`):
+`Simulate` adds to every vertex of every map a Gaussian number with mean 0 and
+standard deviation σ ms (additive, in ms; independent per vertex and per map).
+The seed is fixed in `Simulate.cpp` and the same for every scenario, so the
+noise at σ = 0.3 is exactly 6 times that at σ = 0.05, and the three scenarios
+of the core sample have the same realization of the noise as
+`painted_noise0.05`.
+
 Outputs:
 
 | folder                     | content |
 |----------------------------|---------|
-| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps); also `S_noiseN/`, the same `truth.ply` and the noisy LATs |
+| `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps); `painted_rR/` only `truth.ply` |
 | `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` (`error_maps.py`) next to the `estimate.ply` of the error-PLY cases |
-| `output/figures/`          | `per_face.csv`, `comparison.csv`, `cond_k_ratio.csv` and the plots (`analysis.py`), clean LATs |
-| `output/figures_noiseN/`   | the same, on the scenarios `S_noiseN` (`analysis.py N`) |
+| `output/figures/`          | `per_face.csv`, `comparison.csv`, `grid.csv`, `core.csv` and the plots (`analysis.py`) |
 | `output/mesh/`             | all the PLYs for MeshLab, one folder per case and one per ground truth (`ErrorMaps`, `FiberView`) |
 
-`output/mesh/`, with the cases chosen today by `error_maps.py` (the triplet is the one
-of `painted` with the largest paired area):
+`output/mesh/`, for each scenario S of the grid (`painted`,
+`painted_noise0.05`, `painted_noise0.1`, `painted_noise0.3`): per-face with all
+maps, and per-face and Roney on one triplet TRIPLET, the same at every level
+(the one with the largest paired area on `painted`):
 
 ```
 output/mesh/
-  per_face_uniform_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
-  per_face_painted_sub_0-1-2-3-4-5/   (the same three)
-  per_face_painted_sub_1-4-5/         (the same three)
-  roney_painted_sub_1-4-5/            (the same three)
-  truth_uniform/                      truth_ratio.ply  truth_fibers.ply
-  truth_painted/                      truth_ratio.ply  truth_fibers.ply
+  per_face_S_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
+  per_face_S_TRIPLET/           (the same three)
+  roney_S_TRIPLET/              (the same three)
+  truth_S/                      truth_ratio.ply  truth_fibers.ply
 ```
-
-and the same cases for each noise level, with the scenario `S_noiseN` in the
-folder name (e.g. `per_face_painted_noise0.1_sub_0-1-2-3-4-5/`,
-`truth_painted_noise0.1/`, a copy of `truth_painted/`).
 
 To compare a `truth_ratio.ply` with an `estimate_ratio.ply` in MeshLab:
 *Colorize by face quality* with Min and Max set by hand, equal for both, and
@@ -154,7 +157,8 @@ Percentile Crop 0.
 
 The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the
-comparison with Roney on the map triplets. There is one error per estimable
+comparison with Roney on the map triplets, `grid.csv` (one row per σ and k)
+and `core.csv` (one row per r, k = 4). There is one error per estimable
 face, the log-Euclidean distance between the estimated and the true velocity
 tensor M = CV_L² f fᵀ + CV_T² t tᵀ (Arsigny et al. 2006),
 ‖log M̂ − log M‖_F: dimensionless; with exact fiber and anisotropy, a relative

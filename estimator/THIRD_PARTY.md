@@ -18,5 +18,8 @@ tokens are parsed with `std::strtod`/`strtof` instead of `>>`, which with libstd
 `nan`, `-nan`, `inf` and silently gives 0 (the non-estimable faces of format D are NaN); integers
 are read with `>>` as upstream.
 
+Local change: `#include <cstdint>` added, for `uint8_t` etc.; GCC 16 no longer includes it through
+the other standard headers.
+
 To update it: download `happly.h` from upstream, replace the file,
-re-apply the local change above and update the commit.
+re-apply the local changes above and update the commit.

@@ -2,7 +2,7 @@
 //
 // Usage, from the repository root:
 //   ./estimator/build/FiberView D.ply PREFIX
-//   ./estimator/build/FiberView data/reference/uniform/truth.ply data/reference/uniform/truth
+//   ./estimator/build/FiberView data/reference/painted/truth.ply data/reference/painted/truth
 //
 // PREFIX_ratio.ply   the mesh, quality per face = anisotropy ratio r = CV_L / CV_T = exp(2 alpha)
 // PREFIX_fibers.ply  per face a thin triangle along the fiber, slightly above the face;
