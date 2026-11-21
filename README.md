@@ -91,9 +91,9 @@ Then from the root, with the `cardiofiber` environment active:
 The script builds `estimator/` in `estimator/build/`, writes the ground truths
 with `make_truth.py` and simulates the six LAT maps with `Simulate` (one pacing
 site per row of `simulator/stage1/pacing_sites.csv`). It then deletes
-`output/` and runs the two estimators on every scenario: the per-face
-estimator on all 42 subsets of at least 3 maps and Roney's method on the 20
-triplets. The two estimators read only the LAT maps; the errors are computed
+`output/` and runs the per-face estimator on all 42 subsets of at least 3 maps
+of every scenario, and Roney's method on the 20 triplets of the scenarios of
+the grid only (the core sample in anisotropy is per-face only). The two estimators read only the LAT maps; the errors are computed
 afterwards by `analysis/analysis.py`, against the ground truth.
 
 All the experiments are on the AugmentA fibers and the painted mean speed μ.
@@ -134,7 +134,7 @@ Outputs:
 | folder                     | content |
 |----------------------------|---------|
 | `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps); `painted_rR/` only `truth.ply` |
-| `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`); `error_maps.txt` (`error_maps.py`) next to the `estimate.ply` of the error-PLY cases |
+| `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`, scenarios of the grid only); `error_maps.txt` (`error_maps.py`) next to the `estimate.ply` of the error-PLY cases |
 | `output/figures/`          | `per_face.csv`, `comparison.csv`, `grid.csv`, `core.csv` and the plots (`analysis.py`) |
 | `output/mesh/`             | all the PLYs for MeshLab, one folder per case and one per ground truth (`ErrorMaps`, `FiberView`) |
 
@@ -157,7 +157,7 @@ Percentile Crop 0.
 
 The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the
-comparison with Roney on the map triplets, `grid.csv` (one row per σ and k)
+comparison with Roney on the map triplets (scenarios of the grid), `grid.csv` (one row per σ and k)
 and `core.csv` (one row per r, k = 4). There is one error per estimable
 face, the log-Euclidean distance between the estimated and the true velocity
 tensor M = CV_L² f fᵀ + CV_T² t tᵀ (Arsigny et al. 2006),

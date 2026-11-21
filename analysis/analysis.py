@@ -3,14 +3,15 @@
 Analysis of the experiments, all on the painted mean speed (mu of
 simulator/painted_mu.ply). For each scenario of SCENARIOS (the same list, in
 the same order, as run_all.sh: GRID, then CORE) the 42 subsets of at least 3
-maps with the per-face estimator (output/SCENARIO/per_face/sub_*/) and the 20
-triplets with method 2 of Roney et al. 2019 (output/SCENARIO/roney/sub_i-j-k/),
-each with estimate.ply (format D) and estimate.csv.
+maps with the per-face estimator (output/SCENARIO/per_face/sub_*/); for each
+scenario of GRID also the 20 triplets with method 2 of Roney et al. 2019
+(output/SCENARIO/roney/sub_i-j-k/). Each run has estimate.ply (format D) and
+estimate.csv.
     GRID   painted at the LAT noise levels sigma = 0, 0.05, 0.1, 0.3 ms: the two
            main axes, number of maps k and noise sigma
     CORE   the core sample in anisotropy: mu of painted and constant
            r = CV_L / CV_T = 1.2, 2, 2.8, at sigma = CORE_NOISE = 0.05 ms; its
-           single condition is k = CORE_K = 4
+           single condition is k = CORE_K = 4; per-face only, without Roney
 
 Usage, from the repository root:
     python analysis/analysis.py              # -> output/figures/
@@ -41,7 +42,7 @@ per_face.csv, one row per scenario and subset of the per-face method: non-estima
 area, errors on the estimable faces of the subset and q50, q90 and q99
 of cond (area-weighted, on the faces with computed cond).
 
-comparison.csv, one row per scenario, triplet and method (per_face, roney): non-estimable
+comparison.csv, one row per scenario of GRID, triplet and method (per_face, roney): non-estimable
 area of the method alone, paired area (estimable by both methods with that triplet)
 and errors on the paired faces. For the Roney rows the non-estimable area is also
 split in two: fit_area_% (k_used < 3, lost to the planar fit) and conic_area_%
@@ -73,10 +74,10 @@ Figures:
                        boxes from q25 to q75, line at q50, whiskers from q10 to q90,
                        area-weighted; in the title Spearman's rho of E with k and
                        with r over the same faces, unweighted
-  plot4_roney_noise_{area,error}.png, plot4_roney_ratio_{area,error}.png
-                       per-face vs Roney, one point per triplet and scenario: of
-                       GRID (80 points, one color and marker per sigma) and of CORE
-                       (60 points, one per r). _area: non-estimable area of each
+  plot4_roney_noise_{area,error}.png
+                       per-face vs Roney, one point per triplet and scenario of
+                       GRID (80 points, one color and marker per sigma). _area:
+                       non-estimable area of each
                        method alone, one panel; _error: three panels q50, q90, q99
                        on the paired faces, each with its own scale. Roney on the
                        horizontal axis and per-face on the vertical axis, linear
@@ -111,7 +112,7 @@ CORE = [("painted_r1.2_noise0.05", 1.2), ("painted_r2_noise0.05", 2.0),
         ("painted_r2.8_noise0.05", 2.8)]                  # (scenario, constant r), increasing r
 CORE_K = 4                                                # maps of the core sample
 CORE_NOISE = 0.05                                         # sigma (ms) of the scenarios of CORE
-SCENARIOS = [sc for sc, _ in GRID] + [sc for sc, _ in CORE]   # tables: the order of run_all.sh
+SCENARIOS = [sc for sc, _ in GRID] + [sc for sc, _ in CORE]   # per_face.csv: the order of run_all.sh
 ERRORS = ("error",)
 QUANTILES = (50, 90, 99)
 YLABEL = {"area": "non-estimable area [%]",
@@ -211,15 +212,17 @@ def subs(scenario, method):
 
 
 def tables():
-    """per_face.csv and comparison.csv, as DataFrames."""
+    """per_face.csv (all the scenarios of SCENARIOS) and comparison.csv (only those of GRID, the only
+    ones with Roney), as DataFrames."""
     per_face_table, comparison = [], []
     for sc in SCENARIOS:
         per_face = {sub: load(sc, "per_face", sub) for sub in subs(sc, "per_face")}
-        roney = {sub: load(sc, "roney", sub) for sub in subs(sc, "roney")}
-
         for sub, df in per_face.items():
             per_face_table.append({"scenario": sc, "sub": sub, "k": sub.count("-") + 1,
                                    "non_estimable_area_%": non_estimable(df), **quantiles(df), **cond_quantiles(df)})
+        if sc not in dict(GRID):
+            continue
+        roney = {sub: load(sc, "roney", sub) for sub in subs(sc, "roney")}
 
         for method, runs in (("per_face", per_face), ("roney", roney)):
             rows, paired = [], []
@@ -485,7 +488,6 @@ def main():
     plot_core(core)
     plot3()
     plot4(comparison, "plot4_roney_noise", {sc: f"σ = {n:g} ms" for sc, n in GRID})
-    plot4(comparison, "plot4_roney_ratio", {sc: f"r = {r:g}" for sc, r in CORE})
 
 
 if __name__ == "__main__":

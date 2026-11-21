@@ -10,7 +10,7 @@ simulator/make_truth.py TRUTH            ->  data/reference/TRUTH/truth.ply     
 Simulate truth.ply SITES lat.ply SIGMA   ->  data/reference/SCENARIO/lat.ply     six LAT maps
 experiments/subsets.py SCENARIO          ->  output/SCENARIO/confs/sub_….conf
 Estimate output/SCENARIO/confs/*         ->  output/SCENARIO/per_face/sub_…/estimate.{ply,csv}
-estimator/roney.py roney.conf SC..       ->  output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
+estimator/roney.py roney.conf SC..       ->  output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}   (grid only)
 analysis/analysis.py                     ->  output/figures/
 experiments/error_maps.py + ErrorMaps + FiberView -> output/mesh/
 ```
@@ -175,7 +175,9 @@ Scenario, method and subset are given by the folder,
 of Roney et al. 2019 to all the 20 map triplets of each scenario and writes
 `output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}`. The keys of `roney.conf`
 are documented in the file, the method and its departures from the paper in
-`estimator/README_roney.md`.
+`estimator/README_roney.md`. `run_all.sh` runs it only on the scenarios of the
+grid (`GRID_SCENARIOS`: `painted` and `painted_noiseN`); the core sample in
+anisotropy is per-face only and has no `roney/` folder.
 
 ## The experiment grid
 
@@ -185,7 +187,7 @@ output/
     confs/sub_….conf                  subsets.py, 42 subsets
     per_face/sub_…/estimate.ply       Estimate, 42 subsets
     per_face/sub_…/estimate.csv
-    roney/sub_i-j-k/estimate.ply      estimator/roney.py, 20 triplets
+    roney/sub_i-j-k/estimate.ply      estimator/roney.py, 20 triplets (scenarios of the grid only)
     roney/sub_i-j-k/estimate.csv
   figures/                            analysis/analysis.py, tables and PNGs
   mesh/                               all the PLYs for MeshLab (ErrorMaps, FiberView), below
@@ -215,7 +217,8 @@ their σ in ms (`painted` 0, `painted_noise0.05`, `painted_noise0.1`,
 `painted_noise0.3`); `CORE`, the scenarios of the core sample with their r
 (1.2, 2, 2.8); `CORE_K = 4` and `CORE_NOISE = 0.05`, its single condition; and
 `SCENARIOS`, those of `GRID` and then those of `CORE`, in the order of
-`run_all.sh`, for `per_face.csv` and `comparison.csv`.
+`run_all.sh`, for `per_face.csv`. `comparison.csv` and plot 4 are on the
+scenarios of `GRID` only, the only ones with Roney.
 
 `load(scenario, method, sub)` reads `data/reference/SCENARIO/truth.ply` (once per
 scenario), `estimate.ply` and `estimate.csv` of the run, and returns per face:
@@ -252,7 +255,7 @@ which 50, 90 and 99% of the area lies.
 - `per_face.csv`: one row per scenario and subset of the per-face
   estimator: non-estimable area, errors on the estimable faces of the
   subset, `cond_q50/q90/q99` on the faces with computed cond.
-- `comparison.csv`: one row per scenario, triplet and method (`per_face`,
+- `comparison.csv`: one row per scenario of `GRID`, triplet and method (`per_face`,
   `roney`), with the non-estimable area of the method alone, the paired area
   (faces estimable by both methods with that triplet) and the errors on the
   paired faces. For the Roney rows the non-estimable area is also split in
@@ -283,13 +286,12 @@ rows × 100, i.e. the mean over the subsets of the non-estimable area of each;
 | `plot_core.png` | the core sample, as a function of r (1.2, 2, 2.8), k = 4 (15 subsets), σ = 0.05 ms: left `error_mean` and `error_q99`, right the non-estimable area |
 | `plot3_error_k_ratio.png` | boxes of the log-Euclidean error E (log) grouped by k = 3…6, in each group one box per scenario of `CORE` (one color per r, legend), on the estimable faces of all the subsets with that k; box q25–q75, line at q50, whiskers q10–q90, area-weighted; in the title Spearman's ρ(E, k) and ρ(E, r) over the same faces, unweighted |
 | `plot4_roney_noise_*` | per-face vs Roney, one point per triplet and scenario of `GRID`, 80 points, one Okabe-Ito color and one marker per σ (`σ = 0 ms`, `σ = 0.05 ms`, …) |
-| `plot4_roney_ratio_*` | the same on the scenarios of `CORE`, 60 points, one color and marker per r (`r = 1.2`, …) |
 
-Plot 4 is two PNGs per version: `_area`, the non-estimable area of each
+Plot 4 is two PNGs: `_area`, the non-estimable area of each
 method alone, one panel; `_error`, three panels q50, q90 and q99 on the paired
 faces, each with its own scale. Roney on the horizontal axis and per-face on
 the vertical axis, both linear from 0 with the same limits, with y = x; limits
-and centroid over all the points of the version; on the axes only 0, minimum,
+and centroid over all the points; on the axes only 0, minimum,
 centroid (mean of all the points, cross) and maximum, with dotted projections
 and without grid.
 

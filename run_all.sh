@@ -21,9 +21,11 @@ CORE_NOISE=0.05
 TRUTHS="painted"
 for r in $RATIOS; do TRUTHS="$TRUTHS painted_r$r"; done
 
-# all the scenarios of the estimation: the grid (painted, then painted_noiseN), then the core sample
-ALL_SCENARIOS="painted"
-for n in $NOISES; do ALL_SCENARIOS="$ALL_SCENARIOS painted_noise$n"; done
+# the scenarios of the grid (painted, then painted_noiseN): per-face estimator and Roney
+GRID_SCENARIOS="painted"
+for n in $NOISES; do GRID_SCENARIOS="$GRID_SCENARIOS painted_noise$n"; done
+# all the scenarios of the per-face estimator: the grid, then the core sample (per-face only)
+ALL_SCENARIOS="$GRID_SCENARIOS"
 for r in $RATIOS; do ALL_SCENARIOS="$ALL_SCENARIOS painted_r${r}_noise$CORE_NOISE"; done
 
 cmake -S estimator -B estimator/build -DCMAKE_BUILD_TYPE=Release
@@ -48,15 +50,15 @@ for r in $RATIOS; do noisy painted_r$r painted_r${r}_noise$CORE_NOISE $CORE_NOIS
 
 rm -rf output                                     # no old results in the figures
 
-# grid: for each scenario all subsets of at least 3 maps with the per-face estimator,
-# and all triplets with method 2 of Roney et al. 2019; the estimators read only lat.ply
+# for each scenario all subsets of at least 3 maps with the per-face estimator; on the scenarios
+# of the grid only, all triplets with method 2 of Roney et al. 2019; the estimators read only lat.ply
 for s in $ALL_SCENARIOS; do
     python experiments/subsets.py $s              # -> output/$s/confs/*.conf
 done
 for s in $ALL_SCENARIOS; do
     ./estimator/build/Estimate output/$s/confs/*.conf   # -> output/$s/per_face/sub_*/estimate.{ply,csv}
 done
-python estimator/roney.py experiments/roney.conf $ALL_SCENARIOS   # -> output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
+python estimator/roney.py experiments/roney.conf $GRID_SCENARIOS  # -> output/SCENARIO/roney/sub_i-j-k/estimate.{ply,csv}
 
 # errors against data/reference/SCENARIO/truth.ply, tables and figures
 python analysis/analysis.py                       # -> output/figures/
