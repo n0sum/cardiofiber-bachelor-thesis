@@ -90,46 +90,38 @@ void writeTensorPly(const std::string& filename, const TensorPly& out) {
     plyOut.write(filename, happly::DataFormat::ASCII);
 }
 
-void exportAsPly(const std::string &filename, const cardiofiber::Mesh& mesh, const std::vector<double>& faceQuality,
-                 const std::vector<bool>& writeFace) {
-    const std::vector<glm::dvec3>& vPos = mesh.vertices();
-    const std::vector<cardiofiber::Face>& faces = mesh.faces();
-    if (faceQuality.size() != faces.size())
-        throw std::invalid_argument("exportAsPly: " + std::to_string(faceQuality.size()) + " quality values for " +
+void writeColoredPly(const std::string& filename, const std::vector<glm::dvec3>& vertices,
+                     const std::vector<cardiofiber::Face>& faces,
+                     const std::vector<std::array<unsigned char, 3>>& colors) {
+    if (colors.size() != faces.size())
+        throw std::invalid_argument("writeColoredPly: " + std::to_string(colors.size()) + " colors for " +
                                     std::to_string(faces.size()) + " faces");
-    if (writeFace.size() != faces.size())
-        throw std::invalid_argument("exportAsPly: " + std::to_string(writeFace.size()) + " mask values for " +
-                                    std::to_string(faces.size()) + " faces");
-    const std::vector<glm::dvec3> vNorm = mesh.computeVertexNormals();
     // the file is float32: conversion from double only here
-    std::vector<float> x(vPos.size()),y(vPos.size()),z(vPos.size()),nx(vPos.size()),ny(vPos.size()),nz(vPos.size());
-    for (int i = 0; i < vPos.size(); i++) {
-        x[i] = static_cast<float>(vPos[i].x);
-        y[i] = static_cast<float>(vPos[i].y);
-        z[i] = static_cast<float>(vPos[i].z);
-        nx[i] = static_cast<float>(vNorm[i].x);
-        ny[i] = static_cast<float>(vNorm[i].y);
-        nz[i] = static_cast<float>(vNorm[i].z);
+    std::vector<float> x(vertices.size()), y(vertices.size()), z(vertices.size());
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        x[i] = static_cast<float>(vertices[i].x);
+        y[i] = static_cast<float>(vertices[i].y);
+        z[i] = static_cast<float>(vertices[i].z);
+    }
+    std::vector<std::vector<int>> vertex_indices(faces.size());
+    std::vector<unsigned char> red(faces.size()), green(faces.size()), blue(faces.size());
+    for (size_t i = 0; i < faces.size(); ++i) {
+        vertex_indices[i] = {faces[i].a, faces[i].b, faces[i].c};
+        red[i] = colors[i][0];
+        green[i] = colors[i][1];
+        blue[i] = colors[i][2];
     }
     happly::PLYData plyOut;
-    plyOut.addElement("vertex", vPos.size());
-    plyOut.getElement("vertex").addProperty<float>("x", x);
-    plyOut.getElement("vertex").addProperty<float>("y", y);
-    plyOut.getElement("vertex").addProperty<float>("z", z);
-    plyOut.getElement("vertex").addProperty<float>("nx", nx);
-    plyOut.getElement("vertex").addProperty<float>("ny", ny);
-    plyOut.getElement("vertex").addProperty<float>("nz", nz);
-    std::vector<std::vector<int>> vertex_indices;
-    std::vector<float> quality;
-    for (size_t i = 0; i < faces.size(); ++i) {
-        if (!writeFace[i]) continue;
-        if (!std::isfinite(faceQuality[i]))
-            throw std::runtime_error(filename + ": non-finite quality on face_id " + std::to_string(i));
-        vertex_indices.push_back({faces[i].a, faces[i].b, faces[i].c});
-        quality.push_back(static_cast<float>(faceQuality[i]));
-    }
-    plyOut.addElement("face", vertex_indices.size());
-    plyOut.getElement("face").addListProperty<int>("vertex_indices", vertex_indices);
-    plyOut.getElement("face").addProperty<float>("quality", quality);
+    plyOut.addElement("vertex", vertices.size());
+    auto& v = plyOut.getElement("vertex");
+    v.addProperty<float>("x", x);
+    v.addProperty<float>("y", y);
+    v.addProperty<float>("z", z);
+    plyOut.addElement("face", faces.size());
+    auto& f = plyOut.getElement("face");
+    f.addListProperty<int>("vertex_indices", vertex_indices);
+    f.addProperty<unsigned char>("red", red);
+    f.addProperty<unsigned char>("green", green);
+    f.addProperty<unsigned char>("blue", blue);
     plyOut.write(filename, happly::DataFormat::ASCII);
 }

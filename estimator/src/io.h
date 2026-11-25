@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <string>
 #include <vector>
 #include <glm/vec3.hpp>
@@ -26,5 +27,8 @@ TensorPly readTensorPly(const std::string& filename);
 // Text PLY (format ascii 1.0), with the comment line of format D; NaN values are written as they are ("nan").
 void writeTensorPly(const std::string& filename, const TensorPly& out);
 
-void exportAsPly(const std::string& filename, const cardiofiber::Mesh& mesh,
-                 const std::vector<double>& faceQuality, const std::vector<bool>& writeFace);
+// Text PLY (format ascii 1.0) for MeshLab: per vertex "property float x/y/z" (no normals), per face the
+// triangle and its color "property uchar red/green/blue". Faces written as given, in order; nothing is flipped.
+void writeColoredPly(const std::string& filename, const std::vector<glm::dvec3>& vertices,
+                     const std::vector<cardiofiber::Face>& faces,
+                     const std::vector<std::array<unsigned char, 3>>& colors);

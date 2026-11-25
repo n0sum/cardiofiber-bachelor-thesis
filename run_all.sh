@@ -71,15 +71,15 @@ python estimator/roney.py experiments/roney.conf $GRID_SCENARIOS  # -> output/SC
 # errors against data/reference/SCENARIO/truth.ply, tables and figures
 python analysis/analysis.py                       # -> output/figures/
 
-# PLYs for MeshLab, all in output/mesh/: the cases are chosen in error_maps.py, which writes
-# the errors of each case next to its estimate.ply, in error_maps.txt, creates the folder
-# output/mesh/METHOD_SCENARIO_SUB/ and prints "MESH NUMBERS CASEDIR". Per case: the error
-# PLY (log-Euclidean tensor error) and FiberView on the estimate in CASEDIR/, FiberView on the ground truth of its scenario
-# in output/mesh/truth_SCENARIO/ (rewritten once per case of the scenario, same files).
-python experiments/error_maps.py | while read -r mesh numbers case_dir; do
-    ./estimator/build/ErrorMaps "$mesh" "$numbers" "$case_dir/error.ply"   # -> error.ply
-    ./estimator/build/FiberView "$(dirname "$numbers")/estimate.ply" "$case_dir/estimate"  # -> estimate_{ratio,fibers}.ply
-    scenario=$(basename "$(dirname "$mesh")")
-    mkdir -p "output/mesh/truth_$scenario"
-    ./estimator/build/FiberView "$(dirname "$mesh")/truth.ply" "output/mesh/truth_$scenario/truth"  # -> truth_{ratio,fibers}.ply
+# PLYs for MeshLab, all in output/mesh/{roney_comparison,worst_subsets,ellipses}/: the cases are
+# chosen in error_maps.py, which writes the errors of each error map next to its estimate.ply, in
+# error_maps.txt, creates the three folders and prints one line per case, the kind first:
+# "error MESH NUMBERS OUT" -> ErrorMaps (log-Euclidean error, one RGB color per face), "ellipses D OUT"
+# -> FiberView (the field of D as ellipses on the gray mesh).
+python experiments/error_maps.py | while read -r kind a b c; do
+    if [ "$kind" = error ]; then
+        ./estimator/build/ErrorMaps "$a" "$b" "$c"                # -> OUT, error map
+    elif [ "$kind" = ellipses ]; then
+        ./estimator/build/FiberView "$a" "$b"                     # -> OUT, ellipses
+    fi
 done

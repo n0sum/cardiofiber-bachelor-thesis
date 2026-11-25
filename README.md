@@ -22,8 +22,8 @@ cardiofiber/                   estimation package (C++ library, glm only): mesh,
 estimator/                     project around the package: files and executables
   src/                         Simulate (C++): eikonal LAT maps from a format D field;
                                Estimate (C++): experiments from the .conf files, estimate in format D;
-                               ErrorMaps (C++): error PLYs for MeshLab;
-                               FiberView (C++): a format D field as PLYs for MeshLab
+                               ErrorMaps (C++): error map PLY for MeshLab, RGB per face;
+                               FiberView (C++): a format D field as ellipses, PLY for MeshLab
   include/happly.h             vendored PLY reader/writer (THIRD_PARTY.md)
   roney.py                     method 2 of Roney et al. 2019, estimate in format D
 analysis/analysis.py           errors against the ground truth, area-weighted statistics,
@@ -138,24 +138,31 @@ Outputs:
 | `data/reference/SCENARIO/` | `truth.ply` (ground truth, format D), `lat.ply` (six LAT maps); `painted_rR/` only `truth.ply` |
 | `output/SCENARIO/`         | `confs/sub_*.conf`; `per_face/sub_*/estimate.{ply,csv}` (Estimate); `roney/sub_i-j-k/estimate.{ply,csv}` (`roney.py`, scenarios of the grid only); `error_maps.txt` (`error_maps.py`) next to the `estimate.ply` of the error-PLY cases |
 | `output/figures/`          | `per_face.csv`, `comparison.csv`, `grid.csv`, `core.csv` and the plots (`analysis.py`) |
-| `output/mesh/`             | all the PLYs for MeshLab, one folder per case and one per ground truth (`ErrorMaps`, `FiberView`) |
+| `output/mesh/`             | all the PLYs for MeshLab, in three folders (`ErrorMaps`, `FiberView`), below |
 
-`output/mesh/`, for each scenario S of the grid (`painted`,
-`painted_noise0.05`, `painted_noise0.1`, `painted_noise0.3`): per-face with all
-maps, and per-face and Roney on one triplet TRIPLET, the same at every level
-(the one with the largest paired area on `painted`):
+`output/mesh/`, cases chosen by `experiments/error_maps.py`; TRIPLET is the
+triplet with the largest paired area on `painted` (the same at every level), and
+`worst_subsets` holds, on `painted_noise0.05`, for each k = 3…6 the per-face
+subset with k maps with the highest mean error:
 
 ```
 output/mesh/
-  per_face_S_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
-  per_face_S_TRIPLET/           (the same three)
-  roney_S_TRIPLET/              (the same three)
-  truth_S/                      truth_ratio.ply  truth_fibers.ply
+  roney_comparison/   METHOD_S_TRIPLET_error.ply          per-face and Roney, the 4 scenarios S of the grid (8)
+  worst_subsets/      per_face_painted_noise0.05_kK_SUB_error.ply                         k = 3..6 (4)
+  ellipses/           truth_painted_ellipses.ply                                           ground truth
+                      per_face_painted_noise0.05_k3_SUB_ellipses.ply                       worst triplet
+                      per_face_painted_noise0.05_k6_sub_0-1-2-3-4-5_ellipses.ply           all the maps
 ```
 
-To compare a `truth_ratio.ply` with an `estimate_ratio.ply` in MeshLab:
-*Colorize by face quality* with Min and Max set by hand, equal for both, and
-Percentile Crop 0.
+Every PLY has its own RGB color per face (`ErrorMaps`, `FiberView`): in MeshLab
+*Render → Color → Per Face* (no colormap to set). Gray (160, 160, 160) =
+non-estimable face. `_error.ply`: the whole mesh, the log-Euclidean error from
+green (0) through yellow (≈ 0.98) to red (≈ 1.96 = 2√2 ln 2 and above, the
+error of a fiber rotated by 90° with r = 2). `_ellipses.ply`: the whole mesh
+gray, and on each face with a value an ellipse along the fiber, semi-axes
+0.2 mm along it and 0.2/r mm across it (a circle with r = 1, a needle with
+large r), colored by the mean speed v = e^μ from blue (0.5 mm/ms and below) to
+red (1.0 mm/ms and above).
 
 The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the

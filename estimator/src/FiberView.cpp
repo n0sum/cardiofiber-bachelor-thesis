@@ -1,98 +1,91 @@
-// FiberView: a conduction field in format D, as two PLY files for MeshLab.
+// FiberView: a conduction field in format D as one PLY for MeshLab, the fibers drawn as ellipses.
 //
 // Usage, from the repository root:
-//   ./estimator/build/FiberView D.ply PREFIX
-//   ./estimator/build/FiberView data/reference/painted/truth.ply data/reference/painted/truth
+//   ./estimator/build/FiberView D.ply OUT.ply
+//   ./estimator/build/FiberView data/reference/painted/truth.ply output/mesh/ellipses/truth_painted_ellipses.ply
 //
-// PREFIX_ratio.ply   the mesh, quality per face = anisotropy ratio r = CV_L / CV_T = exp(2 alpha)
-// PREFIX_fibers.ply  per face a thin triangle along the fiber, slightly above the face;
-//                    its length is K * CV_L. View it in wireframe.
-//
-// Faces with a NaN in fx, fy, fz, mu or alpha have no value and are left out of both files.
+// OUT.ply (writeColoredPly, io.h), one RGB color per face, in the same file:
+// - the mesh of D.ply, all its faces gray, in order (nothing is flipped);
+// - for each face with a value (fx, fy, fz, mu, alpha all finite) an ellipse, a fan of N_SEGMENTS
+//   triangles H above the face along its normal: semi-axis RHO along the fiber and RHO / r across it,
+//   r = CV_L / CV_T = exp(2 alpha). The long axis is fixed: every ellipse lies inside the circle of
+//   radius RHO, a circle with alpha = 0, a needle 2 RHO long with large alpha. Colored by the mean
+//   speed v = exp(mu): blue (V_MIN and below) -> red (V_MAX and above).
+// Faces without a value: only gray, no ellipse. In MeshLab: Render -> Color -> Per Face.
 
 #include "io.h"
-#include <happly.h>
-#include <glm/glm.hpp>
-#include <cardiofiber/Mesh.h>
 
+#include <glm/glm.hpp>
+
+#include <algorithm>
+#include <array>
 #include <cmath>
+#include <numbers>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-// Length of a fiber triangle per unit of CV_L (mm per mm/ms).
-const double K = 0.6;
-// Width of the base of a fiber triangle (mm).
-const double WIDTH = 0.005;
-// Height of a fiber triangle above its face, along the outward normal (mm).
-const double HEIGHT = 0.05;
+// Color of the mesh faces.
+const std::array<unsigned char, 3> GRAY = {160, 160, 160};
+// Semi-axis of an ellipse along the fiber (mm); across it RHO / r.
+const double RHO = 0.2;
+// Height of an ellipse above its face, along the outward normal (mm).
+const double H = 0.05;
+// Triangles per ellipse.
+const int N_SEGMENTS = 16;
+// Mean speed v = exp(mu) (mm/ms) mapped to blue and to red; saturated outside.
+const double V_MIN = 0.5;
+const double V_MAX = 1.0;
+
+// blue -> red: s = clamp((v - V_MIN) / (V_MAX - V_MIN), 0, 1), red = 255 s, green = 0, blue = 255 (1 - s).
+std::array<unsigned char, 3> speedColor(double v) {
+    const double s = std::clamp((v - V_MIN) / (V_MAX - V_MIN), 0.0, 1.0);
+    return {static_cast<unsigned char>(std::lround(255.0 * s)), 0,
+            static_cast<unsigned char>(std::lround(255.0 * (1.0 - s)))};
+}
 
 int main(int argc, char** argv) {
     if (argc != 3) {
-        throw std::runtime_error("usage: FiberView D.ply PREFIX");
+        throw std::runtime_error("usage: FiberView D.ply OUT.ply");
     }
-    std::string inputFile = argv[1];
-    std::string prefix = argv[2];
+    const TensorPly field = readTensorPly(argv[1]);
+    const int numFaces = (int)field.faces.size();
 
-    TensorPly field = readTensorPly(inputFile);
-    int numFaces = (int)field.faces.size();
+    // the mesh, all gray
+    std::vector<glm::dvec3> vertices = field.vertices;
+    std::vector<cardiofiber::Face> faces = field.faces;
+    std::vector<std::array<unsigned char, 3>> colors(numFaces, GRAY);
 
-    // --- which faces have a value: fiber, mu and alpha all finite
-    std::vector<bool> hasValue(numFaces);
+    // one ellipse per face with a value: center + N_SEGMENTS rim vertices, N_SEGMENTS triangles
     for (int i = 0; i < numFaces; i++) {
-        glm::dvec3 f = field.fibers[i];
-        hasValue[i] = std::isfinite(f.x) && std::isfinite(f.y) && std::isfinite(f.z) &&
-                      std::isfinite(field.mu[i]) && std::isfinite(field.alpha[i]);
-    }
+        const glm::dvec3 fiber = field.fibers[i];
+        if (!(std::isfinite(fiber.x) && std::isfinite(fiber.y) && std::isfinite(fiber.z) &&
+              std::isfinite(field.mu[i]) && std::isfinite(field.alpha[i])))
+            continue;
 
-    // --- PREFIX_ratio.ply: anisotropy ratio per face
-    std::vector<double> ratio(numFaces);
-    for (int i = 0; i < numFaces; i++) {
-        ratio[i] = std::exp(2.0 * field.alpha[i]);      // NaN where the face has no value
-    }
-    cardiofiber::Mesh mesh(field.vertices, field.faces, {});
-    exportAsPly(prefix + "_ratio.ply", mesh, ratio, hasValue);
+        const glm::dvec3 a = field.vertices[field.faces[i].a];
+        const glm::dvec3 b = field.vertices[field.faces[i].b];
+        const glm::dvec3 c = field.vertices[field.faces[i].c];
+        const glm::dvec3 n = glm::normalize(glm::cross(b - a, c - a));      // outwards
+        const glm::dvec3 f = glm::normalize(fiber - glm::dot(fiber, n) * n); // fiber in the face plane
+        const glm::dvec3 t = glm::cross(n, f);                                // across the fiber
+        const glm::dvec3 center = (a + b + c) / 3.0 + H * n;
+        const double minor = RHO / std::exp(2.0 * field.alpha[i]);            // RHO / r
+        const std::array<unsigned char, 3> color = speedColor(std::exp(field.mu[i]));
 
-    // --- PREFIX_fibers.ply: one thin triangle per face with a value, three new vertices each
-    std::vector<float> x, y, z;
-    std::vector<std::vector<int>> triangles;
-    for (int i = 0; i < numFaces; i++) {
-        if (!hasValue[i]) continue;
-
-        glm::dvec3 a = field.vertices[field.faces[i].a];
-        glm::dvec3 b = field.vertices[field.faces[i].b];
-        glm::dvec3 c = field.vertices[field.faces[i].c];
-        glm::dvec3 center = (a + b + c) / 3.0;
-        glm::dvec3 n = glm::normalize(glm::cross(b - a, c - a));   // outwards
-        glm::dvec3 f = glm::normalize(field.fibers[i]);
-        glm::dvec3 t = glm::cross(n, f);                            // across the fiber, in the face plane
-
-        double cvL = std::exp(field.mu[i] + field.alpha[i]);
-        double L = K * cvL;
-
-        glm::dvec3 lifted = center + HEIGHT * n;
-        glm::dvec3 corners[3] = {
-            lifted - (L / 2.0) * f - (WIDTH / 2.0) * t,
-            lifted - (L / 2.0) * f + (WIDTH / 2.0) * t,
-            lifted + (L / 2.0) * f
-        };
-
-        int first = (int)x.size();
-        for (int j = 0; j < 3; j++) {
-            x.push_back(static_cast<float>(corners[j].x));
-            y.push_back(static_cast<float>(corners[j].y));
-            z.push_back(static_cast<float>(corners[j].z));
+        const int first = (int)vertices.size();
+        vertices.push_back(center);
+        for (int j = 0; j < N_SEGMENTS; j++) {
+            const double theta = 2.0 * std::numbers::pi * j / N_SEGMENTS;
+            vertices.push_back(center + RHO * std::cos(theta) * f + minor * std::sin(theta) * t);
         }
-        triangles.push_back({first, first + 1, first + 2});
+        // (center, j, j + 1): normal along cross(f, t) = n, outwards
+        for (int j = 0; j < N_SEGMENTS; j++) {
+            faces.push_back({first, first + 1 + j, first + 1 + (j + 1) % N_SEGMENTS});
+            colors.push_back(color);
+        }
     }
 
-    happly::PLYData plyOut;
-    plyOut.addElement("vertex", x.size());
-    plyOut.getElement("vertex").addProperty<float>("x", x);
-    plyOut.getElement("vertex").addProperty<float>("y", y);
-    plyOut.getElement("vertex").addProperty<float>("z", z);
-    plyOut.addElement("face", triangles.size());
-    plyOut.getElement("face").addListProperty<int>("vertex_indices", triangles);
-    plyOut.write(prefix + "_fibers.ply", happly::DataFormat::ASCII);
+    writeColoredPly(argv[2], vertices, faces, colors);
     return 0;
 }

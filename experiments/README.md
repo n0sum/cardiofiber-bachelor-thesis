@@ -193,20 +193,20 @@ output/
     roney/sub_i-j-k/estimate.ply      estimator/roney.py, 20 triplets (scenarios of the grid only)
     roney/sub_i-j-k/estimate.csv
   figures/                            analysis/analysis.py, tables and PNGs
-  mesh/                               all the PLYs for MeshLab (ErrorMaps, FiberView), below
+  mesh/                               all the PLYs for MeshLab (ErrorMaps, FiberView), three folders, below
 ```
 
 In the folders of the error-map cases (`error_maps.py`) there is also
-`error_maps.txt`. `output/mesh/`, for each scenario S of the grid (`painted`,
-`painted_noise0.05`, `painted_noise0.1`, `painted_noise0.3`), with TRIPLET the
-triplet chosen by `error_maps.py` (below), the same for every S:
+`error_maps.txt`. `output/mesh/`, with TRIPLET and the subsets SUB chosen by
+`error_maps.py` (below):
 
 ```
 output/mesh/
-  per_face_S_sub_0-1-2-3-4-5/   error.ply  estimate_ratio.ply  estimate_fibers.ply
-  per_face_S_TRIPLET/           (the same three)
-  roney_S_TRIPLET/              (the same three)
-  truth_S/                      truth_ratio.ply  truth_fibers.ply
+  roney_comparison/   per_face_S_TRIPLET_error.ply  roney_S_TRIPLET_error.ply     for each scenario S of the grid (8)
+  worst_subsets/      per_face_painted_noise0.05_kK_SUB_error.ply                 K = 3, 4, 5, 6 (4)
+  ellipses/           truth_painted_ellipses.ply
+                      per_face_painted_noise0.05_k3_SUB_ellipses.ply              SUB of worst_subsets k3
+                      per_face_painted_noise0.05_k6_sub_0-1-2-3-4-5_ellipses.ply
 ```
 
 `run_all.sh` deletes `output/` before recomputing it, so no old results end up
@@ -312,9 +312,43 @@ and centroid over all the points; on the axes only 0, minimum,
 centroid (mean of all the points, cross) and maximum, with dotted projections
 and without grid.
 
-## Error PLYs
+## PLYs for MeshLab
 
-For MeshLab, which colors the faces with a single field, `quality`:
+Every PLY in `output/mesh/` is text (`format ascii 1.0`, written by happly,
+which adds a `comment` line) and carries its own color, one RGB per face,
+written by `writeColoredPly` (`estimator/src/io.cpp`), shared by `ErrorMaps`
+and `FiberView`. Header:
+
+```
+element vertex NV
+property float x
+property float y
+property float z
+element face NF
+property list uchar int vertex_indices
+property uchar red
+property uchar green
+property uchar blue
+```
+
+Vertices `x y z` in mm, no normals; the faces of the mesh are those of the
+input, in `face_id` order and as they are (outward normals), so MeshLab shows
+the surface seen from outside. In MeshLab: *Render → Color → Per Face*.
+The colors (constants at the top of `ErrorMaps.cpp` and `FiberView.cpp`),
+rounded to integers 0-255:
+
+- gray (160, 160, 160): non-estimable face (error maps) or mesh face (ellipses);
+- error E: t = min(E / E_MAX, 1), red = 255 min(1, 2t), green = 255 min(1, 2(1 − t)),
+  blue = 0; green = 0, yellow = E_MAX / 2 ≈ 0.98, red = E_MAX ≈ 1.96 and above, with
+  E_MAX = 2√2 ln 2, the error of a fiber rotated by 90° with r = 2;
+- mean speed v = e^μ: s = clamp((v − 0.5) / (1.0 − 0.5), 0, 1), red = 255 s,
+  green = 0, blue = 255 (1 − s); blue = 0.5 mm/ms and below, red = 1.0 mm/ms and
+  above, never through gray.
+
+These PLYs are only for visualization: they must never be used as input to
+any computation (colors, float coordinates).
+
+### Error maps
 
 ```bash
 ./estimator/build/ErrorMaps MESH.ply NUMBERS.txt OUT.ply
@@ -326,67 +360,48 @@ with `MESH.ply` a PLY of the mesh (`error_maps.py` passes
 row per face in `face_id` order, `estimable error`, with `0 0`
 on the non-estimable faces (no `nan`, which `>>` in C++ does not read). The
 numbers come from `load()` of `analysis/analysis.py` and are written with
-`repr`, which reads back exactly as a double. `ErrorMaps` writes with
-`exportAsPly` (`estimator/src/io.cpp`) one text PLY, `OUT.ply` (`format ascii 1.0`,
-written by happly, which adds a `comment` line), with the log-Euclidean error
-as the per-face `quality`. Header:
+`repr`, which reads back exactly as a double. `OUT.ply` has all the vertices
+(21811) and all the faces (43270) of `MESH.ply`, no holes: gray where
+`estimable = 0`, otherwise the color of the error. An estimable face with a
+non-finite error stops `ErrorMaps` with an error naming the file and the
+`face_id`.
 
+`error_maps.py` (no arguments) chooses the cases, writes for each error map
+`error_maps.txt` next to its `estimate.ply`, creates the three folders of
+`output/mesh/` and prints one line per case, the kind first:
+`error MESH NUMBERS OUT` or `ellipses D OUT`, with OUT the final path of the
+PLY; `run_all.sh` calls `ErrorMaps MESH NUMBERS OUT` or `FiberView D OUT`.
+The cases (`GRID` imported from `analysis.py`):
+
+1. `roney_comparison/`: for each scenario of `GRID`, per-face and Roney on a
+   single triplet, the same at every noise level, so that the levels compare
+   on the same maps: the triplet with the largest paired area (faces estimable
+   by both methods, area-weighted, areas from `load()`) on `painted` without
+   noise;
+2. `worst_subsets/`: on the scenario of `GRID` with σ = `WORST_NOISE` = 0.05 ms,
+   per-face, for each k = 3…6 the subset with k maps with the highest mean
+   error, sum(area · error) / sum(area) on its estimable faces (with k = 6 the
+   only one, `sub_0-1-2-3-4-5`);
+3. `ellipses/`: the ground truth `data/reference/painted/truth.ply`, and on
+   `painted_noise0.05` the per-face estimates of the triplet chosen for k = 3
+   in `worst_subsets` and of `sub_0-1-2-3-4-5`.
+
+### Conduction fields as ellipses
+
+```bash
+./estimator/build/FiberView D.ply OUT.ply
 ```
-element vertex 21811
-property float x
-property float y
-property float z
-property float nx
-property float ny
-property float nz
-element face N
-property list uchar int vertex_indices
-property float quality
-```
 
-- Vertices: all of them, in the order of `MESH.ply`, `x y z` in mm, with the
-  per-vertex normals `nx ny nz`, unit and pointing outward, computed on the
-  whole mesh, so a vertex left without faces still has a finite normal.
-- Faces: only the estimable ones (`estimable = 1` in `NUMBERS.txt`), in
-  `face_id` order; `N` is their number. The triangles
-  are those of `MESH.ply`, as they are (outward normals, as in `truth.ply`), so
-  MeshLab shows the surface seen from outside. The non-estimable faces are left
-  out because MeshLab crashes on a NaN quality ("Colorize by face quality"):
-  the holes in the surface are the non-estimable area. A written face with a
-  non-finite quality stops `ErrorMaps` with an error naming the file and the
-  `face_id`.
-- `quality` is the value of `NUMBERS.txt` rounded to float.
-
-These PLYs are only for visualization: they must never be used as input to
-any computation (missing faces, float values).
-
-`error_maps.py` chooses the cases, writes for each one `error_maps.txt` next to
-its `estimate.ply`, creates the folder of the case
-`output/mesh/METHOD_SCENARIO_SUB/` (CASEDIR) and prints a line
-`MESH NUMBERS CASEDIR`; `run_all.sh` calls `ErrorMaps MESH NUMBERS CASEDIR/error.ply`.
-The cases:
-
-For each scenario of `GRID` (imported from `analysis.py`):
-
-1. per-face, all maps;
-2. per-face and Roney on a single triplet, the same at every noise level, so
-   that in MeshLab the levels compare on the same maps: the triplet with the
-   largest paired area (faces estimable by both methods, area-weighted, areas
-   from `load()`) on `painted` without noise.
-
-## Conduction fields for MeshLab
-
-`./estimator/build/FiberView D.ply PREFIX` turns any format D file (ground
-truth or estimate) into `PREFIX_ratio.ply` (quality per face = r) and
-`PREFIX_fibers.ply` (a thin triangle along each fiber, length proportional to
-CV_L); faces with NaN are left out.
-
-`run_all.sh` calls it for the cases of the error maps (`error_maps.py`): for
-each one on the estimate, writing `CASEDIR/estimate_{ratio,fibers}.ply`,
-and on the ground truth of its scenario, writing
-`output/mesh/truth_SCENARIO/truth_{ratio,fibers}.ply` (the four scenarios of
-the grid; the same files are written once per case of the scenario).
-
-To compare ground truth and estimate in MeshLab: *Colorize by face quality*
-on the two `_ratio.ply`, with Min and Max set by hand and equal for both, and
-Percentile Crop 0, so the same colour is the same r.
+turns a format D file (ground truth or estimate) into one PLY with, in the
+same file, the mesh of `D.ply` with all its faces gray and, for each face with
+a value (`fx fy fz mu alpha` all finite), an ellipse: a fan of
+`N_SEGMENTS` = 16 triangles around the centroid c of the face, lifted by
+`H` = 0.05 mm along the outward normal n. With f the fiber projected on the
+plane of the face and normalized and t = n × f, the vertices are c + H n and,
+for i = 0…15, θ = 2π i / 16, c + `RHO` cos θ f + (`RHO` / r) sin θ t + H n,
+with `RHO` = 0.2 mm and r = e^(2α); the triangles (center, i, i + 1 mod 16)
+have normal +n. The long axis is fixed: every ellipse lies inside the circle
+of radius `RHO`, a circle with α = 0, a needle 2 `RHO` long with large α; the
+shape shows fiber and anisotropy, the color the mean speed v = e^μ (all 16
+triangles). Faces without a value: only gray, no ellipse. Vertices
+21811 + 17 · (faces with a value), faces 43270 + 16 · (faces with a value).
