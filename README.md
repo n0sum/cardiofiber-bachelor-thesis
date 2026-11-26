@@ -166,7 +166,8 @@ red (1.0 mm/ms and above).
 
 The numbers are in `output/figures/`: `per_face.csv` for the per-face
 estimator (one row per scenario and subset), `comparison.csv` for the
-comparison with Roney on the map triplets (scenarios of the grid), `grid.csv` (one row per σ and k)
+comparison with Roney on the map triplets (scenarios of the grid; mean and
+quantiles of the error on the faces estimated by both methods), `grid.csv` (one row per σ and k)
 and `core.csv` (one row per r, k = 4). There is one error per estimable
 face, the log-Euclidean distance between the estimated and the true velocity
 tensor M = CV_L² f fᵀ + CV_T² t tᵀ (Arsigny et al. 2006),

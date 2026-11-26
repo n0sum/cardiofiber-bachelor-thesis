@@ -275,7 +275,8 @@ which 50, 90 and 99% of the area lies.
   paired faces. For the Roney rows the non-estimable area is also split in
   two: `fit_area_%` (`k_used < 3`, lost to the planar fit) and `conic_area_%`
   (`k_used = 3` and estimate NaN: the conic is not an ellipse or the system is
-  nearly singular); both empty on the per-face rows. The rows with `sub` =
+  nearly singular); both empty on the per-face rows. On the paired faces
+  `error_mean` = Σ area·E / Σ area and `error_q50/q90/q99`. The rows with `sub` =
   `pooled` gather the paired faces of the 20 triplets of the scenario; their
   areas are means over the triplets.
 - `grid.csv`: one row per (σ, k) of the scenarios of `GRID`, columns
@@ -305,12 +306,12 @@ rows × 100, i.e. the mean over the subsets of the non-estimable area of each;
 | `plot4_roney_noise_*` | per-face vs Roney, one point per triplet and scenario of `GRID`, 80 points, one Okabe-Ito color and one marker per σ (`σ = 0 ms`, `σ = 0.05 ms`, …) |
 
 Plot 4 is two PNGs: `_area`, the non-estimable area of each
-method alone, one panel; `_error`, three panels q50, q90 and q99 on the paired
-faces, each with its own scale. Roney on the horizontal axis and per-face on
-the vertical axis, both linear from 0 with the same limits, with y = x; limits
-and centroid over all the points; on the axes only 0, minimum,
-centroid (mean of all the points, cross) and maximum, with dotted projections
-and without grid.
+method alone, one panel; `_error`, two panels on the paired faces (the faces
+estimated by both methods), mean (`error_mean`) and q99 (`error_q99`), each
+with its own scale. Roney on the horizontal axis and per-face on the vertical
+axis, both linear from 0 with the same limits, with y = x; limits over all the
+points; on the axes only the minimum and the maximum of the cloud (no 0 tick),
+with dotted projections and without grid. Legend: the four σ and y = x.
 
 ## PLYs for MeshLab
 

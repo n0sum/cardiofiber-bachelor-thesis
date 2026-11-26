@@ -55,7 +55,8 @@ area of the method alone, paired area (estimable by both methods with that tripl
 and errors on the paired faces. For the Roney rows the non-estimable area is also
 split in two: fit_area_% (k_used < 3, lost to the planar fit) and conic_area_%
 (k_used = 3 and estimate NaN: the conic is not an ellipse or the system is nearly
-singular); empty on the per-face rows. The rows with sub = pooled gather the
+singular); empty on the per-face rows. error_mean = sum area E / sum area and
+error_q50/q90/q99 on the paired faces. The rows with sub = pooled gather the
 paired faces of the 20 triplets of the scenario; their areas are the means over
 the triplets.
 
@@ -88,12 +89,12 @@ Figures:
                        per-face vs Roney, one point per triplet and scenario of
                        GRID (80 points, one color and marker per sigma). _area:
                        non-estimable area of each
-                       method alone, one panel; _error: three panels q50, q90, q99
-                       on the paired faces, each with its own scale. Roney on the
-                       horizontal axis and per-face on the vertical axis, linear
-                       from 0 with the same limits, y = x; on the axes only 0,
-                       minimum, centroid (mean of all the points, cross) and maximum
-                       of the cloud, with dotted projections and without grid
+                       method alone, one panel; _error: two panels, mean
+                       (error_mean) and q99 on the paired faces, each with its own
+                       scale. Roney on the horizontal axis and per-face on the
+                       vertical axis, linear from 0 with the same limits, y = x; on
+                       the axes only minimum and maximum of the cloud, with dotted
+                       projections and without grid
 """
 
 import functools
@@ -125,9 +126,9 @@ SCENARIOS = [sc for sc, _ in GRID] + [sc for sc, _ in CORE]   # per_face.csv: th
 ERRORS = ("error",)                                       # grid.csv, per_face.csv, comparison.csv
 CORE_ERRORS = ("angle", "mean_speed", "ratio")            # core.csv
 QUANTILES = (50, 90, 99)
-YLABEL = {"area": "non-estimable area [%]",
-          "error": "log-Euclidean error ‖log M̂ − log M‖"}
-METHODS = {"per_face": "per-face", "roney": "Roney"}
+YLABEL = {"area": "non-estimable area [%]",          # plot 4 and plot_core
+          "error": "log-Euclidean error"}             # plot 4
+METHODS = {"per_face": "Per-face", "roney": "Roney"}      # axes of plot 4
 OKABE_ITO = ("#000000", "#0072B2", "#D55E00", "#009E73", "#E69F00", "#56B4E9", "#CC79A7")  # scenarios of plot 4
 MARKERS = "osD^v<>"                                       # scenarios of plot 4
 
@@ -190,6 +191,12 @@ def non_estimable(df):
     return 100 * w[~df["estimable"]].sum() / w.sum()
 
 
+def error_mean(df):
+    """Mean of the error on the estimable faces, area-weighted: sum area E / sum area."""
+    est = df[df["estimable"]]
+    return {"error_mean": (est["area"] * est["error"]).sum() / est["area"].sum()}
+
+
 def quantiles(df):
     """q50, q90 and q99 of the error on the estimable faces."""
     est = df[df["estimable"]]
@@ -245,36 +252,33 @@ def tables():
                 both = roney[sub]["estimable"] & per_face[sub]["estimable"]
                 rows.append({"scenario": sc, "sub": sub, "method": method,
                              "non_estimable_area_%": non_estimable(df), **roney_split(df, method),
-                             "paired_area_%": 100 * df["area"][both].sum() / df["area"].sum(), **quantiles(df[both])})
+                             "paired_area_%": 100 * df["area"][both].sum() / df["area"].sum(),
+                             **error_mean(df[both]), **quantiles(df[both])})
                 paired.append(df[both])
             comparison += rows
             comparison.append({"scenario": sc, "sub": "pooled", "method": method,
                                **{col: np.mean([r[col] for r in rows])
                                   for col in ("non_estimable_area_%", "fit_area_%", "conic_area_%")},
                                "paired_area_%": np.mean([r["paired_area_%"] for r in rows]),
-                               **quantiles(pd.concat(paired))})
+                               **error_mean(pd.concat(paired)), **quantiles(pd.concat(paired))})
     return pd.DataFrame(per_face_table), pd.DataFrame(comparison)
 
 
 def figure(name, title, draw, after=None):
-    """Two PNGs, FIG/NAME_{area,error}.png. draw(ax, cols, ylabel) draws
-    in one panel the columns of cols, {label: column}: the area in one panel, the error in one panel
-    per quantile. after(fig), if given, is called before saving."""
-    for q, ylabel in YLABEL.items():
-        if q == "area":
-            panels = {"non-estimable area": {"non-estimable area": "non_estimable_area_%"}}
-        else:
-            panels = {f"q{p}": {f"q{p}": f"{q}_q{p}"} for p in QUANTILES}
-        fig, axes = plt.subplots(1, len(panels), figsize=(max(4.6 * len(panels), 7.5), 4.6), squeeze=False,
+    """Two PNGs, FIG/NAME_{area,error}.png, with title as the first line of the title.
+    draw(ax, col, label) draws in one panel the column col: the area in one panel, the error in
+    two panels, mean and q99. after(fig), if given, is called before saving."""
+    pngs = {"area": ("", {"Non-estimable area (each method on its own)": "non_estimable_area_%"}),
+            "error": ("\nerror on the faces estimated by both methods", {"Mean": "error_mean", "q99": "error_q99"})}
+    for q, (subtitle, panels) in pngs.items():
+        fig, axes = plt.subplots(1, len(panels), figsize=(5.6 * len(panels), 6.0), squeeze=False,
                                  layout="constrained")
-        for ax, (panel, cols) in zip(axes[0], panels.items()):
-            ax.grid(alpha=0.3)
-            draw(ax, cols, ylabel)
+        for ax, (panel, col) in zip(axes[0], panels.items()):
+            draw(ax, col, YLABEL[q])
             ax.set_title(panel)
         handles, labels = axes[0, 0].get_legend_handles_labels()
-        fig.legend(handles, labels, loc="outside lower center", ncol=min(len(labels), 6 if len(panels) > 1 else 3),
-                   frameon=False)
-        fig.suptitle(title)
+        fig.legend(handles, labels, loc="outside lower center", ncol=len(labels), frameon=False)
+        fig.suptitle(title + subtitle)
         if after:
             after(fig)
         fig.savefig(FIG / f"{name}_{q}.png", dpi=140, bbox_inches="tight")
@@ -423,37 +427,32 @@ def plot4(comparison, name, labels):
                                                        on=["scenario", "sub"],
                                                        suffixes=("_roney", "_per_face")).reset_index(drop=True)
 
-    def draw4(ax, cols, ylabel):
-        (col,) = cols.values()
-        for (sc, label), color, marker in zip(labels.items(), OKABE_ITO, MARKERS):
+    def draw4(ax, col, label):
+        for (sc, level), color, marker in zip(labels.items(), OKABE_ITO, MARKERS):
             s = g4[g4["scenario"] == sc]
             ax.scatter(s[f"{col}_roney"], s[f"{col}_per_face"], s=22, color=color, marker=marker,
-                       label=label, zorder=3)
+                       label=level, zorder=3)
         x, y = g4[f"{col}_roney"], g4[f"{col}_per_face"]
         lim = (0, 1.05 * max(x.max(), y.max()))
         ax.plot(lim, lim, color="#555", lw=1, label="y = x")
         ax.set_xlim(*lim)
         ax.set_ylim(*lim)
-        # on the axes only 0, minimum, centroid and maximum of the cloud, with the projections
-        mx, my = x.mean(), y.mean()
+        # on the axes only minimum and maximum of the cloud, with the projections
         projection = dict(color="#444", lw=0.8, ls=":", zorder=2)
         for i in (x.idxmin(), x.idxmax()):
             ax.plot([x[i], x[i]], [0, y[i]], **projection)
         for i in (y.idxmin(), y.idxmax()):
             ax.plot([0, x[i]], [y[i], y[i]], **projection)
-        ax.plot([mx, mx, 0], [0, my, my], **projection)
-        ax.scatter(mx, my, s=170, marker="+", linewidths=2, color="#444", label="centroid", zorder=5)
         for setter, v in ((ax.set_xticks, x), (ax.set_yticks, y)):
-            vals = [0, v.min(), v.mean(), v.max()]
-            setter(vals, ["0"] + [f"{t:.0f}" if t >= 100 else f"{t:#.3g}".rstrip(".")   # 19.0, not 19;
-                                  for t in vals[1:]])                              # 1172, not 1.17e+03
-        ax.grid(False)
+            vals = [v.min(), v.max()]
+            setter(vals, [f"{t:.0f}" if t >= 100 else f"{t:#.3g}".rstrip(".")   # 19.0, not 19;
+                          for t in vals])                                  # 1172, not 1.17e+03
         ax.set_aspect("equal")
-        ax.set_xlabel(f"{METHODS['roney']}:\n{ylabel}")                 # two lines: the labels are long
-        ax.set_ylabel(f"{METHODS['per_face']}:\n{ylabel}")
+        ax.set_xlabel(f"{METHODS['roney']}: {label}")
+        ax.set_ylabel(f"{METHODS['per_face']}: {label}")
 
-    figure(name, f"map triplets: per-face vs Roney, paired faces (area: each method alone), {len(g4)} points\n"
-           "on the axes: min, centroid (mean of all the points) and max", draw4, after=separate_tick_labels)
+    figure(name, f"{METHODS['per_face']} vs {METHODS['roney']}: {g4['sub'].nunique()} map triplets at "
+           f"{g4['scenario'].nunique()} noise levels", draw4, after=separate_tick_labels)
 
 
 def main():
