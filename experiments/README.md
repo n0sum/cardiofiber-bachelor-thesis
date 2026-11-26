@@ -399,7 +399,7 @@ a value (`fx fy fz mu alpha` all finite), an ellipse: a fan of
 `H` = 0.05 mm along the outward normal n. With f the fiber projected on the
 plane of the face and normalized and t = n × f, the vertices are c + H n and,
 for i = 0…15, θ = 2π i / 16, c + `RHO` cos θ f + (`RHO` / r) sin θ t + H n,
-with `RHO` = 0.2 mm and r = e^(2α); the triangles (center, i, i + 1 mod 16)
+with `RHO` = 0.23 mm and r = e^(2α); the triangles (center, i, i + 1 mod 16)
 have normal +n. The long axis is fixed: every ellipse lies inside the circle
 of radius `RHO`, a circle with α = 0, a needle 2 `RHO` long with large α; the
 shape shows fiber and anisotropy, the color the mean speed v = e^μ (all 16

@@ -28,7 +28,7 @@
 // Color of the mesh faces.
 const std::array<unsigned char, 3> GRAY = {160, 160, 160};
 // Semi-axis of an ellipse along the fiber (mm); across it RHO / r.
-const double RHO = 0.2;
+const double RHO = 0.23;
 // Height of an ellipse above its face, along the outward normal (mm).
 const double H = 0.05;
 // Triangles per ellipse.

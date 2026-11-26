@@ -160,7 +160,7 @@ non-estimable face. `_error.ply`: the whole mesh, the log-Euclidean error from
 green (0) through yellow (≈ 0.98) to red (≈ 1.96 = 2√2 ln 2 and above, the
 error of a fiber rotated by 90° with r = 2). `_ellipses.ply`: the whole mesh
 gray, and on each face with a value an ellipse along the fiber, semi-axes
-0.2 mm along it and 0.2/r mm across it (a circle with r = 1, a needle with
+0.23 mm along it and 0.23/r mm across it (a circle with r = 1, a needle with
 large r), colored by the mean speed v = e^μ from blue (0.5 mm/ms and below) to
 red (1.0 mm/ms and above).
 
